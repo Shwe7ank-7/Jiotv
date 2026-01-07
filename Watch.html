@@ -1,60 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Live TV</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css"/>
-<script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
-
 <style>
-body { margin:0; background:black; }
-video { width:100vw; height:100vh; }
+body {
+  margin:0;
+  background:#000;
+}
+video {
+  width:100vw;
+  height:100vh;
+}
 </style>
 </head>
-
 <body>
 
-<video id="player" controls playsinline></video>
+<video id="video" controls autoplay></video>
 
 <script>
-const id = new URLSearchParams(location.search).get('id');
+const params = new URLSearchParams(location.search);
+const id = params.get("id");
 
-fetch('channels.json')
-.then(r=>r.json())
-.then(data=>{
-  const ch = data.channels.find(c=>c.id===id);
-  if(!ch) return alert("Channel not found");
+const testStream =
+  "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
 
-  const src = ch.streams[0].url;
-  const video = document.getElementById('player');
+const video = document.getElementById("video");
 
-  if(Hls.isSupported()){
-    const hls = new Hls();
-    hls.loadSource(src);
-    hls.attachMedia(video);
-
-    hls.on(Hls.Events.MANIFEST_PARSED, ()=>{
-      const qualities = hls.levels.map(l=>l.height).filter(Boolean);
-      new Plyr(video,{
-        quality:{
-          default:qualities[0],
-          options:qualities,
-          forced:true,
-          onChange:q=>{
-            hls.levels.forEach((l,i)=>{
-              if(l.height===q) hls.currentLevel=i;
-            });
-          }
-        }
-      });
-    });
-  } else {
-    video.src = src;
-    new Plyr(video);
-  }
-});
+if (Hls.isSupported()) {
+  const hls = new Hls();
+  hls.loadSource(testStream);
+  hls.attachMedia(video);
+} else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+  video.src = testStream;
+}
 </script>
 
 </body>
