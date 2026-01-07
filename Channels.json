@@ -8,34 +8,34 @@
   ],
   "channels": [
     {
-      "id": "sports-1",
+      "id": "sports1",
       "name": "Sports HD 1",
-      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Sports+HD+1",
-      "category": "Sports"
+      "category": "Sports",
+      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Sports+HD+1"
     },
     {
-      "id": "sports-2",
+      "id": "sports2",
       "name": "Sports HD 2",
-      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Sports+HD+2",
-      "category": "Sports"
+      "category": "Sports",
+      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Sports+HD+2"
     },
     {
-      "id": "ent-1",
+      "id": "ent1",
       "name": "Entertainment Plus",
-      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Entertainment",
-      "category": "Entertainment"
+      "category": "Entertainment",
+      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Entertainment"
     },
     {
-      "id": "movie-1",
+      "id": "movie1",
       "name": "Movie World",
-      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Movies",
-      "category": "Movies"
+      "category": "Movies",
+      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Movies"
     },
     {
-      "id": "news-1",
+      "id": "news1",
       "name": "News 24x7",
-      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=News",
-      "category": "News"
+      "category": "News",
+      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=News"
     }
   ]
 }
