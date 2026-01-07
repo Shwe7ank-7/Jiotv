@@ -4,41 +4,37 @@
     "Sports",
     "Entertainment",
     "Movies",
-    "News",
-    "Kids",
-    "Music",
-    "Lifestyle",
-    "Infotainment"
+    "News"
   ],
   "channels": [
     {
       "id": "sports-1",
       "name": "Sports HD 1",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Football_Icon.svg/512px-Football_Icon.svg.png",
+      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Sports+HD+1",
       "category": "Sports"
     },
     {
       "id": "sports-2",
       "name": "Sports HD 2",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Cricket_ball.svg/512px-Cricket_ball.svg.png",
+      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Sports+HD+2",
       "category": "Sports"
     },
     {
       "id": "ent-1",
       "name": "Entertainment Plus",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Television_icon.svg/512px-Television_icon.svg.png",
+      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Entertainment",
       "category": "Entertainment"
     },
     {
       "id": "movie-1",
       "name": "Movie World",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Film_reel_icon.svg/512px-Film_reel_icon.svg.png",
+      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=Movies",
       "category": "Movies"
     },
     {
       "id": "news-1",
       "name": "News 24x7",
-      "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Newspaper_icon.svg/512px-Newspaper_icon.svg.png",
+      "logo": "https://dummyimage.com/300x300/1f2937/ffffff&text=News",
       "category": "News"
     }
   ]
