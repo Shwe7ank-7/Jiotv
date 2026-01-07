@@ -5,37 +5,27 @@
 <title>Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
-body {
-  margin:0;
-  background:#000;
-}
-video {
-  width:100vw;
-  height:100vh;
-}
+body{margin:0;background:black}
+video{width:100vw;height:100vh}
 </style>
 </head>
-<body>
 
-<video id="video" controls autoplay></video>
+<body>
+<video id="v" controls autoplay></video>
 
 <script>
-const params = new URLSearchParams(location.search);
-const id = params.get("id");
+const video=document.getElementById("v");
 
-const testStream =
-  "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+// SAFE demo stream (Chrome allowed)
+const stream="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
 
-const video = document.getElementById("video");
-
-if (Hls.isSupported()) {
-  const hls = new Hls();
-  hls.loadSource(testStream);
+if(Hls.isSupported()){
+  const hls=new Hls();
+  hls.loadSource(stream);
   hls.attachMedia(video);
-} else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-  video.src = testStream;
+}else{
+  video.src=stream;
 }
 </script>
-
 </body>
 </html>
