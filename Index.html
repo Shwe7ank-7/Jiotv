@@ -1,90 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>JioTV+</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JioTV+</title>
 
 <style>
 body {
   margin:0;
-  font-family: system-ui, Arial;
   background:#0b1220;
-  color:#fff;
+  color:white;
+  font-family: Arial;
 }
 
 header {
   display:flex;
+  justify-content:space-between;
   align-items:center;
-  justify-content:center;
-  padding:14px;
-  font-size:22px;
-  font-weight:700;
-  position:relative;
-}
-
-.menu-btn {
-  position:absolute;
-  left:14px;
-  font-size:24px;
-  cursor:pointer;
-}
-
-.theme-btn {
-  position:absolute;
-  right:14px;
-  cursor:pointer;
-}
-
-.menu {
-  position:fixed;
-  top:0;
-  left:-240px;
-  width:220px;
-  height:100%;
-  background:#111827;
   padding:15px;
-  transition:0.3s;
-  z-index:999;
+  background:#020617;
 }
 
-.menu.open { left:0; }
+#menu {
+  position:fixed;
+  top:60px;
+  left:-220px;
+  width:200px;
+  height:100%;
+  background:#020617;
+  padding:10px;
+  transition:0.3s;
+}
 
-.menu button {
+#menu button {
   width:100%;
   padding:10px;
-  margin-bottom:8px;
+  margin:5px 0;
+  border:none;
   background:#1f2937;
   color:white;
-  border:none;
   border-radius:8px;
-  font-size:15px;
 }
 
-.grid {
+#grid {
   padding:15px;
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-  gap:14px;
+  grid-template-columns:repeat(2,1fr);
+  gap:15px;
 }
 
 .card {
-  background:#162033;
-  border-radius:16px;
-  padding:14px;
+  background:#020617;
+  border-radius:15px;
+  padding:10px;
   text-align:center;
-  cursor:pointer;
 }
 
 .card img {
-  width:80px;
-  height:80px;
-  object-fit:contain;
+  width:100%;
+  border-radius:10px;
 }
 
-.card h3 {
-  margin:10px 0 0;
-  font-size:14px;
+input {
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  margin:10px 0;
 }
 </style>
 </head>
@@ -92,70 +73,73 @@ header {
 <body>
 
 <header>
-  <span class="menu-btn" onclick="toggleMenu()">☰</span>
-  JioTV+
-  <span class="theme-btn" onclick="toggleTheme()">🌙</span>
+  <span onclick="toggleMenu()">☰</span>
+  <b>JioTV+</b>
+  <span onclick="toggleTheme()">🌙</span>
 </header>
 
-<div class="menu" id="menu"></div>
-<div class="grid" id="grid"></div>
+<div id="menu"></div>
+
+<div style="padding:15px">
+  <input placeholder="Search channels..." oninput="search(this.value)">
+</div>
+
+<div id="grid"></div>
 
 <script>
-let DATA = null;
-let CURRENT_CATEGORY = "All";
+let DATA;
+let CATEGORY="All";
+let dark=true;
 
 fetch("channels.json")
-  .then(r => r.json())
-  .then(json => {
-    DATA = json;
-    renderCategories();
-    renderChannels();
-  })
-  .catch(() => {
-    document.getElementById("grid").innerHTML =
-      "<p style='color:#aaa'>Failed to load channels</p>";
-  });
+.then(r=>r.json())
+.then(j=>{
+  DATA=j;
+  loadMenu();
+  render();
+});
 
-function renderCategories() {
-  const menu = document.getElementById("menu");
-  DATA.categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.onclick = () => {
-      CURRENT_CATEGORY = cat;
-      renderChannels();
+function loadMenu(){
+  const m=document.getElementById("menu");
+  DATA.categories.forEach(c=>{
+    const b=document.createElement("button");
+    b.innerText=c;
+    b.onclick=()=>{
+      CATEGORY=c;
+      toggleMenu();
+      render();
     };
-    menu.appendChild(btn);
+    m.appendChild(b);
   });
 }
 
-function renderChannels(query = "") {
-  const grid = document.getElementById("grid");
-  grid.innerHTML = "";
-
+function render(q=""){
+  const g=document.getElementById("grid");
+  g.innerHTML="";
   DATA.channels
-    .filter(c =>
-      (CURRENT_CATEGORY === "All" || c.category === CURRENT_CATEGORY) &&
-      c.name.toLowerCase().includes(query.toLowerCase())
-    )
-    .forEach(ch => {
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
-        <img src="${ch.logo}">
-        <h3>${ch.name}</h3>
-      `;
-      div.onclick = () => {
-        location.href = `watch.html?id=${ch.id}`;
-      };
-      grid.appendChild(div);
-    });
+  .filter(c=>(CATEGORY==="All"||c.category===CATEGORY)&&c.name.toLowerCase().includes(q.toLowerCase()))
+  .forEach(c=>{
+    const d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<img src="${c.logo}"><p>${c.name}</p>`;
+    d.onclick=()=>location.href=`watch.html?id=${c.id}`;
+    g.appendChild(d);
+  });
 }
 
-function searchChannels(v) {
-  renderChannels(v);
+function toggleMenu(){
+  const m=document.getElementById("menu");
+  m.style.left = m.style.left==="0px" ? "-220px":"0px";
 }
-        </script>
+
+function search(v){ render(v); }
+
+function toggleTheme(){
+  dark=!dark;
+  document.body.style.background = dark ? "#0b1220":"#f5f5f5";
+  document.body.style.color = dark ? "white":"black";
+}
+</script>
 
 </body>
 </html>
