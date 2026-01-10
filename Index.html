@@ -3,55 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shwe7ank - Jiotv</title>
+<title>Jiotv - @Shwe7ank</title>
 <style>
-  :root { --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #f8fafc; --accent: #3b82f6; }
+  :root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --text-primary: #ffffff;
+    --accent: #3b82f6;
+  }
   body { margin: 0; font-family: sans-serif; background: var(--bg-primary); color: var(--text-primary); }
   
-  /* Header & Search */
-  header { position: sticky; top: 0; z-index: 100; background: var(--bg-secondary); padding: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-  .logo { font-weight: 900; letter-spacing: 1px; color: #fff; }
-  
-  .search-box { padding: 10px; background: var(--bg-primary); }
-  input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: var(--bg-secondary); color: white; box-sizing: border-box; }
+  /* Header */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg-secondary);
+    padding: 15px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  }
+  .logo { font-weight: 800; font-size: 18px; color: #fff; letter-spacing: 0.5px; }
+
+  /* Search */
+  .search-container { padding: 15px; position: sticky; top: 60px; z-index: 40; background: var(--bg-primary); }
+  input {
+    width: 100%; padding: 12px; border-radius: 8px;
+    border: 1px solid #334155; background: var(--bg-secondary);
+    color: white; font-size: 16px; outline: none; box-sizing: border-box;
+  }
+  input:focus { border-color: var(--accent); }
 
   /* Grid */
-  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; padding: 10px; }
-  .card { background: var(--bg-secondary); border-radius: 10px; overflow: hidden; cursor: pointer; transition: 0.2s; position: relative; }
-  .card:active { transform: scale(0.95); }
-  .card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000; }
-  .card-title { padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 15px;
+  }
   
-  /* Category Tags */
-  .tag { position: absolute; top: 0; right: 0; background: var(--accent); font-size: 10px; padding: 2px 6px; border-bottom-left-radius: 6px; }
+  .card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s;
+  }
+  .card:active { transform: scale(0.96); }
+  
+  .card img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: contain;
+    background: #000;
+    display: block;
+  }
+  
+  .card-info { padding: 8px; text-align: center; }
+  .card-title {
+    font-size: 11px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  
+  /* Category Badge */
+  .cat-badge {
+    position: absolute; top: 0; right: 0;
+    background: var(--accent); color: white;
+    font-size: 9px; padding: 2px 6px;
+    border-bottom-left-radius: 6px;
+  }
+  
+  /* Loading */
+  #loader { text-align: center; padding: 20px; color: #aaa; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">Jiotv - @shwe7ank</div>
-  <div style="font-size: 12px; color: #aaa;">LIVE</div>
+  <div class="logo">Jiotv - @Shwe7ank</div>
+  <div onclick="location.reload()" style="cursor:pointer">↻</div>
 </header>
 
-<div class="search-box">
-  <input type="text" id="search" placeholder="Search 500+ Channels..." oninput="render()">
+<div class="search-container">
+  <input type="text" id="search" placeholder="Search Channels..." oninput="filterChannels()">
 </div>
 
+<div id="loader">Loading Channels...</div>
 <div id="grid"></div>
 
 <script>
-// --- CONFIGURATION ---
+// CONFIG
 const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
-
 let allChannels = [];
 
 window.onload = async () => {
   try {
-    const res = await fetch(M3U_URL);
-    const text = await res.text();
-    parseM3U(text);
-  } catch (e) {
-    document.getElementById('grid').innerHTML = "Failed to load channels. Check internet.";
+    const response = await fetch(M3U_URL);
+    const data = await response.text();
+    parseM3U(data);
+  } catch (error) {
+    document.getElementById('loader').innerText = "Error loading channels.";
   }
 };
 
@@ -68,38 +118,46 @@ function parseM3U(data) {
       const name = nameParts[nameParts.length - 1].trim();
       
       currentChannel = {
-        name: name || "Unknown Channel",
-        logo: (logoMatch && logoMatch[1]) ? logoMatch[1] : "https://via.placeholder.com/150?text=TV",
-        category: (groupMatch && groupMatch[1]) ? groupMatch[1] : "Other"
+        name: name || "Unknown",
+        logo: (logoMatch && logoMatch[1]) ? logoMatch[1] : "https://via.placeholder.com/150?text=No+Logo",
+        category: (groupMatch && groupMatch[1]) ? groupMatch[1] : "TV"
       };
     } else if (line.startsWith('http')) {
       currentChannel.url = line;
       allChannels.push(currentChannel);
     }
   });
-  render();
+  
+  document.getElementById('loader').style.display = 'none';
+  renderChannels(allChannels);
 }
 
-function render() {
+function renderChannels(channels) {
   const grid = document.getElementById('grid');
-  const query = document.getElementById('search').value.toLowerCase();
-  
   grid.innerHTML = "";
   
-  // FILTER: Only show matching names
-  const filtered = allChannels.filter(c => c.name.toLowerCase().includes(query));
-
-  filtered.slice(0, 300).forEach(c => { // Limit to 300 for speed
-    const d = document.createElement('div');
-    d.className = 'card';
-    d.onclick = () => window.location.href = `watch.html?play=${encodeURIComponent(c.url)}`;
-    d.innerHTML = `
-      <div class="tag">${c.category}</div>
-      <img src="${c.logo}" loading="lazy">
-      <div class="card-title">${c.name}</div>
+  // Limit to first 500 to prevent browser lag, or render all if needed
+  channels.slice(0, 500).forEach(c => {
+    const card = document.createElement('div');
+    card.className = "card";
+    // Encode URL to pass safely to player
+    card.onclick = () => window.location.href = `watch.html?play=${encodeURIComponent(c.url)}`;
+    
+    card.innerHTML = `
+      <div class="cat-badge">${c.category}</div>
+      <img src="${c.logo}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=TV'">
+      <div class="card-info">
+        <div class="card-title">${c.name}</div>
+      </div>
     `;
-    grid.appendChild(d);
+    grid.appendChild(card);
   });
+}
+
+function filterChannels() {
+  const query = document.getElementById('search').value.toLowerCase();
+  const filtered = allChannels.filter(c => c.name.toLowerCase().includes(query));
+  renderChannels(filtered);
 }
 </script>
 </body>
