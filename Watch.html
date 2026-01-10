@@ -1,165 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ultimate Player</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0"></script>
-<style>
-  body { margin: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: sans-serif; }
-  
-  #video-container {
-    flex: 1;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  video { width: 100%; height: 100%; object-fit: contain; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JioTV Shaka Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.min.css">
+    <style>
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        
+        #video-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
 
-  /* Controls Overlay */
-  .overlay {
-    position: absolute; top: 0; left: 0; width: 100%; padding: 20px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-    z-index: 10; display: flex; align-items: center; gap: 15px;
-  }
+        video { 
+            width: 100%; 
+            height: 100%; 
+            outline: none;
+        }
 
-  .back-btn {
-    background: rgba(255,255,255,0.1); color: white;
-    text-decoration: none; padding: 8px 16px; border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.2); font-size: 14px;
-    backdrop-filter: blur(5px);
-  }
+        /* Custom Back Button */
+        .back-btn {
+            position: absolute;
+            top: 20px; left: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-weight: bold;
+        }
 
-  /* Status Box */
-  #status-box {
-    position: absolute;
-    background: rgba(20, 20, 20, 0.9);
-    border: 1px solid #333;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    color: #fff;
-    max-width: 90%;
-    display: none; /* Hidden by default */
-  }
-  
-  .error-code { color: #ef4444; font-weight: bold; margin-bottom: 10px; display: block; }
-  .retry-btn {
-    background: #3b82f6; color: white; border: none;
-    padding: 10px 20px; border-radius: 5px; cursor: pointer;
-    margin-top: 15px; font-weight: bold;
-  }
-</style>
+        /* Error/Status Log */
+        #log {
+            position: absolute;
+            bottom: 20px; left: 20px;
+            color: #ff4444;
+            font-size: 12px;
+            z-index: 90;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 
-<div class="overlay">
-  <a href="index.html" class="back-btn">← Back to Channels</a>
-  <span style="color:#aaa; font-size:12px;">Live Stream</span>
-</div>
+    <a href="index.html" class="back-btn">← Back</a>
+    
+    <div id="video-container" data-shaka-player-container>
+        <video id="video" autoplay data-shaka-player></video>
+    </div>
+    
+    <div id="log"></div>
 
-<div id="video-container">
-  <div id="status-box">
-    <span class="error-code" id="error-msg">Connecting...</span>
-    <div id="debug-info" style="font-size:11px; color:#888; margin-bottom:10px;"></div>
-    <div class="loader"></div>
-    <button class="retry-btn" onclick="location.reload()">Retry Connection</button>
-  </div>
-  <video id="video" controls autoplay playsinline></video>
-</div>
+    <script>
+        // --- YOUR WORKER CONFIG ---
+        const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
 
-<script>
-// --- CONFIGURATION ---
-const WORKER = "https://pkll.xojiv79335.workers.dev/"; 
+        const manifestUri = new URLSearchParams(window.location.search).get('play');
+        const logBox = document.getElementById('log');
 
-const video = document.getElementById('video');
-const statusBox = document.getElementById('status-box');
-const errorMsg = document.getElementById('error-msg');
-const debugInfo = document.getElementById('debug-info');
-
-// Get params
-const urlParams = new URLSearchParams(window.location.search);
-const rawStreamUrl = urlParams.get('play');
-
-if (!rawStreamUrl) {
-  showError("No Channel Selected", "Please go back and click a channel.");
-} else {
-  startPlayer();
-}
-
-function startPlayer() {
-  // 1. Construct the Safe URL
-  // We FORCE the worker because browsers block mixed content (HTTP vs HTTPS)
-  // If the stream is http://, it MUST go through the https:// worker.
-  
-  let finalUrl = rawStreamUrl;
-  
-  // Logic: Append URL to worker if not already there
-  if (!rawStreamUrl.includes(WORKER)) {
-     // Some workers need ?url=, some just append. We try the safest query param method first.
-     // If your worker is a direct proxy, it might need just the URL appended.
-     // Let's try the direct append method first as it's common for 'pkll' scripts.
-     finalUrl = WORKER + rawStreamUrl;
-  }
-
-  console.log("Target:", finalUrl);
-
-  if (Hls.isSupported()) {
-    const hls = new Hls({
-      debug: false,
-      enableWorker: true,
-      lowLatencyMode: true,
-      backBufferLength: 90
-    });
-
-    hls.loadSource(finalUrl);
-    hls.attachMedia(video);
-
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      hideError();
-      video.play().catch(() => {
-        showError("Autoplay Blocked", "Tap the screen to unmute/play.");
-      });
-    });
-
-    hls.on(Hls.Events.ERROR, (event, data) => {
-      if (data.fatal) {
-        console.error("Fatal Error:", data);
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          showError("Network Error", "The worker could not fetch this stream. <br>The channel might be offline.");
-          debugInfo.innerText = "Try clicking 'Retry' or select another channel.";
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          hls.recoverMediaError();
-        } else {
-          showError("Playback Failed", "Code: " + data.details);
+        function log(msg) {
+            console.log(msg);
+            logBox.innerText = msg;
         }
-      }
-    });
 
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    // iOS / Safari
-    video.src = finalUrl;
-    video.addEventListener('loadedmetadata', () => video.play());
-    video.addEventListener('error', (e) => {
-        showError("iOS Error", "Safari could not load this stream.");
-    });
-  }
-}
+        async function init() {
+            if (!manifestUri) {
+                log("Error: No Channel URL Found");
+                return;
+            }
 
-function showError(title, desc) {
-  statusBox.style.display = 'block';
-  errorMsg.innerText = title;
-  debugInfo.innerHTML = desc;
-  video.style.opacity = 0.3; // Dim video
-}
+            // 1. Install Polyfills (CRITICAL for Shaka)
+            shaka.polyfill.installAll();
 
-function hideError() {
-  statusBox.style.display = 'none';
-  video.style.opacity = 1;
-}
-</script>
+            if (!shaka.Player.isBrowserSupported()) {
+                log('Browser not supported!');
+                return;
+            }
+
+            const video = document.getElementById('video');
+            const player = new shaka.Player(video);
+            const ui = new shaka.ui.Overlay(player, document.getElementById('video-container'), video);
+
+            // 2. Error Handling
+            player.addEventListener('error', (event) => {
+                log('Error code: ' + event.detail.code + ' object: ' + event.detail);
+            });
+
+            // 3. Network Filters (The part you asked for: UA, Referer, Cookie)
+            player.getNetworkingEngine().registerRequestFilter(function(type, request) {
+                // Only modify license or stream requests
+                if (type == shaka.net.NetworkingEngine.RequestType.MANIFEST || 
+                    type == shaka.net.NetworkingEngine.RequestType.SEGMENT ||
+                    type == shaka.net.NetworkingEngine.RequestType.LICENSE) {
+
+                    // A. Add Headers (If browser allows)
+                    request.headers['User-Agent'] = 'plaYtv/7.0.8 (Linux;Android 9) ExoPlayerLib/2.11.5';
+                    request.headers['Referer'] = 'https://jiotv.com/';
+                    
+                    // B. Cookie Logic: If your worker requires sending the cookie header manually
+                    // request.headers['Cookie'] = 'your_cookie_here'; 
+                    // (Usually the Worker handles the cookie, so we leave this commented unless you have a static cookie)
+                }
+            });
+
+            // 4. Construct Final URL (Route through Worker)
+            // We force the worker proxy to ensure headers are handled server-side if client-side fails
+            let finalUrl = manifestUri;
+            if(!manifestUri.includes('workers.dev')) {
+                // Standard JioTV Proxy pattern
+                finalUrl = WORKER_URL + manifestUri;
+            }
+
+            log("Loading: " + finalUrl);
+
+            try {
+                // 5. Load Stream
+                await player.load(finalUrl);
+                log(""); // Clear errors on success
+            } catch (e) {
+                log('Load failed: ' + e.code);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
 </body>
-  </html>
-  
+</html>
