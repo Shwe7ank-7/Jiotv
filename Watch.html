@@ -12,7 +12,7 @@
       .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
       video { width: 100%; height: 100%; background: #000; object-fit: contain; }
       
-      /* Hide default Shaka Spinner (we use ours) */
+      /* Hide default Shaka Spinner */
       .shaka-spinner-container { display: none !important; }
 
       /* UI Overlay */
@@ -24,7 +24,7 @@
       /* Back Button */
       .back-btn { position: absolute; top: 25px; right: 25px; background: rgba(255,255,255,0.15); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-size: 14px; backdrop-filter: blur(5px); z-index: 20; border: 1px solid rgba(255,255,255,0.1); }
 
-      /* Status Messages */
+      /* Messages */
       .center-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; z-index: 5; }
       .error-box { background: rgba(20,20,20,0.95); padding: 25px; border-radius: 12px; border: 1px solid #333; max-width: 85%; display: none; }
       .retry-btn { margin-top: 15px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
@@ -51,8 +51,9 @@
     </div>
 
     <script>
+      // CONFIG
       const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
-      const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/main/jstar.m3u";
+      const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
 
       document.addEventListener('DOMContentLoaded', async () => {
         
@@ -61,7 +62,6 @@
           return p.get('id');
         }
 
-        // --- 1. THE PARSER (Strictly matches friend's logic) ---
         async function fetchChannel(targetId) {
           try {
             document.getElementById('loader').innerText = "Fetching Channel List...";
@@ -87,19 +87,19 @@
                 }
               } else if (line.startsWith('http')) {
                 if (current.id === targetId) {
-                  // --- THE FIX: WRAP URL IN WORKER HERE ---
-                  // This fixes the "Black Screen" on Netlify
+                  // --- THE MAGIC FIX ---
+                  // We automatically add the worker to the URL.
+                  // This makes it work on Netlify and Fixes CORS.
                   current.streamUrl = WORKER_URL + line;
                   return current;
                 }
                 current = {};
               }
             }
-          } catch (e) { throw new Error("Playlist Load Failed"); }
+          } catch (e) { throw new Error("Playlist Load Failed. Check Internet."); }
           return null;
         }
 
-        // --- 2. PLAYER INIT ---
         async function initPlayer(channel) {
           shaka.polyfill.installAll();
           if (!shaka.Player.isBrowserSupported()) {
@@ -110,18 +110,14 @@
           const player = new shaka.Player(video);
           const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
-          // UI Config (Matches friend)
           ui.configure({
             controlPanelElements: ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'fullscreen'],
             seekBarColors: { base: 'rgba(255,255,255,0.3)', buffered: 'rgba(255,255,255,0.5)', played: '#3b82f6' }
           });
 
-          // Network Filters (The Secret Sauce)
+          // Network Filters
           player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            // We set the User-Agent to trick the server
             request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
-            // We do NOT set Referer here because the Worker handles it.
-            // Setting it here often causes CORS errors in the browser.
           });
 
           player.configure({
@@ -132,7 +128,6 @@
             }
           });
 
-          // Error Handler
           player.addEventListener('error', (e) => {
              console.error(e);
              if (e.detail.code === 7002 || e.detail.code === 1001 || e.detail.code === 1002) {
@@ -140,28 +135,23 @@
              }
           });
 
-          // Load
           document.getElementById('loader').innerText = "Connecting to Satellite...";
-          console.log("Playing:", channel.streamUrl); // Debugging
           
           await player.load(channel.streamUrl);
           
-          // Success
           document.getElementById('loader').style.display = 'none';
           document.getElementById('channelLogo').src = channel.logo;
           document.getElementById('channelName').innerText = channel.name;
           
-          // Hide info after 4s
           setTimeout(() => document.getElementById('channelInfo').classList.add('hidden'), 4000);
         }
 
-        // --- 3. STARTUP ---
         try {
           const id = getChannelId();
-          if(!id) throw new Error("No Channel ID Provided");
+          if(!id) throw new Error("No Channel ID Found");
           
           const channel = await fetchChannel(id);
-          if(!channel) throw new Error("Channel Not Found in Playlist");
+          if(!channel) throw new Error("Channel Not Found");
           
           await initPlayer(channel);
           
