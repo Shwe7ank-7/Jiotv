@@ -1,31 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
 body{margin:0;background:black}
 video{width:100vw;height:100vh}
+.top{
+  position:absolute;
+  top:10px;
+  left:10px;
+  color:white;
+  z-index:10;
+}
 </style>
 </head>
 
 <body>
+
+<div class="top">● LIVE</div>
 <video id="v" controls autoplay></video>
 
 <script>
+const url=new URLSearchParams(location.search).get("id");
+
+/* LEGAL DEMO STREAM */
+const STREAM="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+
 const video=document.getElementById("v");
-
-// SAFE demo stream (Chrome allowed)
-const stream="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
-
 if(Hls.isSupported()){
   const hls=new Hls();
-  hls.loadSource(stream);
+  hls.loadSource(STREAM);
   hls.attachMedia(video);
 }else{
-  video.src=stream;
+  video.src=STREAM;
 }
 </script>
+
 </body>
 </html>
