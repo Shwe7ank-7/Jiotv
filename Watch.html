@@ -6,91 +6,72 @@
 <title>Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
-  body, html { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
-  video { width: 100%; height: 100%; object-fit: contain; }
-  
-  #back {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    background: rgba(0,0,0,0.5);
-    color: white;
-    border: 1px solid white;
-    padding: 8px 15px;
-    cursor: pointer;
-    z-index: 10;
-    font-family: sans-serif;
-    border-radius: 5px;
-    text-decoration: none;
-  }
+  body { margin: 0; background: black; height: 100vh; display: flex; flex-direction: column; }
+  video { width: 100%; height: 100%; }
+  #controls { position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 10px; }
+  button { background: rgba(0,0,0,0.6); color: white; border: 1px solid #555; padding: 8px 15px; cursor: pointer; border-radius: 5px; }
 </style>
 </head>
 <body>
 
-<a id="back" href="index.html">← Back</a>
+<div id="controls">
+  <button onclick="location.href='index.html'">← Back</button>
+  <button onclick="retryWithProxy()">⚠️ Stream Not Loading? Click Here</button>
+</div>
+
 <video id="video" controls autoplay></video>
 
 <script>
-// --- CONFIGURATION ---
-// The worker you provided. 
-const FETCHER_URL = "https://pkll.xojiv79335.workers.dev/"; 
+// YOUR WORKER URL
+const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
 
 const video = document.getElementById('video');
 const urlParams = new URLSearchParams(window.location.search);
-const streamUrl = urlParams.get('play');
+let streamUrl = urlParams.get('play');
 
-if (!streamUrl) {
-  alert("No stream provided!");
-  window.location.href = "index.html";
-}
-
-// Function to modify URL if needed (some fetchers require stream url appended)
-function getProxiedUrl(originalUrl) {
-  // Logic: Most workers for JioTV act as a proxy. 
-  // If the stream fails directly, we might need to route it through the fetcher.
-  // For now, let's try direct playback. If your system relies on the fetcher
-  // to generate the token, the URL in M3U usually already includes it 
-  // OR we need to wrap it.
-  
-  // UNCOMMENT BELOW if you need to wrap every request through the worker:
-  // return `${FETCHER_URL}?url=${encodeURIComponent(originalUrl)}`;
-  
-  return originalUrl;
-}
-
+// 1. Try to play DIRECTLY first (Fastest)
 if (Hls.isSupported()) {
-  const hls = new Hls({
-    // Advanced: Inject headers if the fetcher requires them
-    xhrSetup: function(xhr, url) {
-      xhr.withCredentials = false; // Set true if cookies needed
-    }
-  });
-
-  const finalUrl = getProxiedUrl(streamUrl);
-  
-  hls.loadSource(finalUrl);
+  const hls = new Hls();
+  hls.loadSource(streamUrl);
   hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
   
-  hls.on(Hls.Events.MANIFEST_PARSED, function() {
-    video.play();
-  });
-  
-  hls.on(Hls.Events.ERROR, function(event, data) {
-    console.log("HLS Error:", data);
-    if(data.fatal) {
-      // If direct fail, try ONE retry with fetcher/proxy if you have a specific logic
-      // location.href = ...
+  // If error, auto-retry with proxy
+  hls.on(Hls.Events.ERROR, function (event, data) {
+    if (data.fatal) {
+      console.log("Direct load failed, trying proxy...");
+      retryWithProxy(); 
     }
   });
-
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-  // For Safari / iOS
+} 
+// For Safari (iPhone/iPad)
+else if (video.canPlayType('application/vnd.apple.mpegurl')) {
   video.src = streamUrl;
-  video.addEventListener('loadedmetadata', function() {
-    video.play();
-  });
+  video.addEventListener('loadedmetadata', () => video.play());
+  video.addEventListener('error', () => retryWithProxy());
+}
+
+// 2. The Proxy Fixer Function
+function retryWithProxy() {
+  // If we already tried proxy, stop loop
+  if(streamUrl.includes(WORKER_URL)) return;
+
+  // Logic: Append the stream URL to your worker
+  // Note: Different workers handle params differently. 
+  // Common Pattern: WORKER_URL + stream_url
+  const newUrl = WORKER_URL + streamUrl; 
+  
+  console.log("Retrying with: " + newUrl);
+  
+  if (Hls.isSupported()) {
+    const hlsProxy = new Hls();
+    hlsProxy.loadSource(newUrl);
+    hlsProxy.attachMedia(video);
+    hlsProxy.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+  } else {
+    video.src = newUrl;
+  }
 }
 </script>
-
 </body>
 </html>
