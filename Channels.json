@@ -6,43 +6,11 @@
     "Entertainment",
     "Movies",
     "News",
-    "Kids",
-    "Lifestyle",
     "Music",
-    "Devotional",
+    "Kids",
     "Infotainment",
-    "Business News"
-  ],
-  "channels": [
-    {
-      "id": "sony_ten_1_hd",
-      "name": "Sony Ten 1 HD",
-      "category": "Sports",
-      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Sony_Ten_1_HD.png"
-    },
-    {
-      "id": "star_sports_2_hd",
-      "name": "Star Sports 2 HD",
-      "category": "Sports",
-      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Star_Sports_HD2.png"
-    },
-    {
-      "id": "zee_cinema_hd",
-      "name": "Zee Cinema HD",
-      "category": "Movies",
-      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Zee_Cinema_HD.png"
-    },
-    {
-      "id": "cartoon_network_telugu",
-      "name": "Cartoon Network Telugu",
-      "category": "Kids",
-      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Cartoon_Network_Telugu.png"
-    },
-    {
-      "id": "aaj_tak",
-      "name": "Aaj Tak",
-      "category": "News",
-      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Aaj_Tak.png"
-    }
+    "Lifestyle",
+    "Devotional",
+    "Regional"
   ]
 }
