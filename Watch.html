@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Player</title>
+<title>Smart Live Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
   body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
@@ -15,39 +15,41 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    background: #000;
   }
   
-  video {
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    object-fit: contain; /* Ensures whole video is visible */
-  }
+  video { width: 100%; height: 100%; object-fit: contain; }
 
-  /* Custom Back Button overlay */
+  /* Back Button */
   .back-btn {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 20px; left: 20px;
     background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 10px 18px;
-    border-radius: 30px;
-    text-decoration: none;
-    font-family: sans-serif;
-    font-weight: bold;
-    font-size: 14px;
-    border: 1px solid rgba(255,255,255,0.2);
+    color: white; padding: 10px 20px;
+    border-radius: 8px; text-decoration: none;
+    font-family: sans-serif; font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
     z-index: 20;
     backdrop-filter: blur(5px);
   }
-  
-  /* Loading Spinner */
-  #loading {
+
+  /* Status / Error Message */
+  #status {
     position: absolute;
-    color: white;
-    font-family: sans-serif;
-    z-index: 5;
+    color: #fff;
+    font-family: monospace;
+    background: rgba(0,0,0,0.8);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    z-index: 10;
+    max-width: 80%;
+  }
+  .retry-btn {
+    display: block; margin-top: 10px;
+    padding: 8px 16px; background: #2563eb;
+    color: white; border: none; border-radius: 4px;
+    cursor: pointer;
   }
 </style>
 </head>
@@ -56,65 +58,95 @@
 <a href="index.html" class="back-btn">← Back</a>
 
 <div id="video-container">
-  <div id="loading">Connecting to Server...</div>
+  <div id="status">Initializing...</div>
   <video id="video" controls autoplay playsinline></video>
 </div>
 
 <script>
-// --- YOUR MAGIC WORKER ---
+// --- SETTINGS ---
 const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
 
 const video = document.getElementById('video');
-const loading = document.getElementById('loading');
-
-// Get the channel URL from the ?play= parameter
+const status = document.getElementById('status');
 const urlParams = new URLSearchParams(window.location.search);
-let streamUrl = urlParams.get('play');
+const originalStreamUrl = urlParams.get('play');
 
-if (!streamUrl) {
-  alert("No channel selected.");
-  window.location.href = "index.html";
+// We will try these formats in order
+const attempts = [
+  // 1. Worker as Proxy Parameter (Most common for newer scripts)
+  { type: 'Proxy Param', url: (target) => `${WORKER_URL}?url=${encodeURIComponent(target)}` },
+  
+  // 2. Direct Append (Old style)
+  { type: 'Direct Append', url: (target) => `${WORKER_URL}${target}` },
+  
+  // 3. Direct Play (In case link works without worker)
+  { type: 'Direct Stream', url: (target) => target }
+];
+
+let currentAttempt = 0;
+let hls = null;
+
+if (!originalStreamUrl) {
+  status.innerHTML = "No channel selected.<br><a href='index.html' style='color:#3b82f6'>Go Back</a>";
+} else {
+  tryPlay();
 }
 
-// --- CRITICAL FIX: FORCE PROXY ---
-// We DO NOT try to play the raw link. We immediately send it to the worker.
-// This fetches the cookies/tokens automatically.
-let finalUrl = streamUrl;
-if (!streamUrl.includes("workers.dev")) {
-    finalUrl = WORKER_URL + streamUrl;
-}
+function tryPlay() {
+  if (currentAttempt >= attempts.length) {
+    status.innerHTML = `
+      Stream failed to load.<br>
+      <small>The worker or source might be offline.</small>
+      <button class="retry-btn" onclick="location.reload()">Try Again</button>
+    `;
+    return;
+  }
 
-console.log("Playing via Worker:", finalUrl);
-
-if (Hls.isSupported()) {
-  const hls = new Hls({
-    // Optimizations for smoother live streaming
-    manifestLoadingTimeOut: 20000,
-    levelLoadingTimeOut: 20000
-  });
+  const method = attempts[currentAttempt];
+  const finalUrl = method.url(originalStreamUrl);
   
-  hls.loadSource(finalUrl);
-  hls.attachMedia(video);
-  
-  hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    loading.style.display = "none";
-    video.play().catch(e => console.log("Auto-play blocked:", e));
-  });
+  status.innerText = `Connecting (${method.type})...`;
+  console.log(`Attempt ${currentAttempt + 1}: ${finalUrl}`);
 
-  hls.on(Hls.Events.ERROR, (event, data) => {
-    if (data.fatal) {
-       console.error("Stream Error:", data);
-       loading.innerText = "Stream Offline or Worker Error.";
-    }
-  });
+  if (Hls.isSupported()) {
+    if(hls) hls.destroy(); // Clean up previous attempt
+    
+    hls = new Hls({
+      manifestLoadingTimeOut: 15000,
+      levelLoadingTimeOut: 15000,
+      fragLoadingTimeOut: 15000
+    });
 
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-  // Safari Native Player
-  video.src = finalUrl;
-  video.addEventListener('loadedmetadata', () => {
-    loading.style.display = "none";
-    video.play();
-  });
+    hls.loadSource(finalUrl);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      status.style.display = 'none'; // Hide text on success
+      video.play().catch(e => console.log("Autoplay blocked", e));
+    });
+
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if (data.fatal) {
+        console.warn(`Attempt ${currentAttempt + 1} Failed:`, data);
+        currentAttempt++;
+        tryPlay(); // Try next method
+      }
+    });
+
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari Fallback
+    video.src = finalUrl;
+    
+    video.onloadedmetadata = () => {
+      status.style.display = 'none';
+      video.play();
+    };
+    
+    video.onerror = () => {
+      currentAttempt++;
+      tryPlay();
+    };
+  }
 }
 </script>
 </body>
