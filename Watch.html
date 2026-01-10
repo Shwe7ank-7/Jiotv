@@ -1,41 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
-body{margin:0;background:black}
-video{width:100vw;height:100vh}
-.top{
-  position:absolute;
-  top:10px;
-  left:10px;
-  color:white;
-  z-index:10;
-}
+  body, html { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
+  video { width: 100%; height: 100%; object-fit: contain; }
+  
+  #back {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: 1px solid white;
+    padding: 8px 15px;
+    cursor: pointer;
+    z-index: 10;
+    font-family: sans-serif;
+    border-radius: 5px;
+    text-decoration: none;
+  }
 </style>
 </head>
-
 <body>
 
-<div class="top">● LIVE</div>
-<video id="v" controls autoplay></video>
+<a id="back" href="index.html">← Back</a>
+<video id="video" controls autoplay></video>
 
 <script>
-const url=new URLSearchParams(location.search).get("id");
+// --- CONFIGURATION ---
+// The worker you provided. 
+const FETCHER_URL = "https://pkll.xojiv79335.workers.dev/"; 
 
-/* LEGAL DEMO STREAM */
-const STREAM="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+const video = document.getElementById('video');
+const urlParams = new URLSearchParams(window.location.search);
+const streamUrl = urlParams.get('play');
 
-const video=document.getElementById("v");
-if(Hls.isSupported()){
-  const hls=new Hls();
-  hls.loadSource(STREAM);
+if (!streamUrl) {
+  alert("No stream provided!");
+  window.location.href = "index.html";
+}
+
+// Function to modify URL if needed (some fetchers require stream url appended)
+function getProxiedUrl(originalUrl) {
+  // Logic: Most workers for JioTV act as a proxy. 
+  // If the stream fails directly, we might need to route it through the fetcher.
+  // For now, let's try direct playback. If your system relies on the fetcher
+  // to generate the token, the URL in M3U usually already includes it 
+  // OR we need to wrap it.
+  
+  // UNCOMMENT BELOW if you need to wrap every request through the worker:
+  // return `${FETCHER_URL}?url=${encodeURIComponent(originalUrl)}`;
+  
+  return originalUrl;
+}
+
+if (Hls.isSupported()) {
+  const hls = new Hls({
+    // Advanced: Inject headers if the fetcher requires them
+    xhrSetup: function(xhr, url) {
+      xhr.withCredentials = false; // Set true if cookies needed
+    }
+  });
+
+  const finalUrl = getProxiedUrl(streamUrl);
+  
+  hls.loadSource(finalUrl);
   hls.attachMedia(video);
-}else{
-  video.src=STREAM;
+  
+  hls.on(Hls.Events.MANIFEST_PARSED, function() {
+    video.play();
+  });
+  
+  hls.on(Hls.Events.ERROR, function(event, data) {
+    console.log("HLS Error:", data);
+    if(data.fatal) {
+      // If direct fail, try ONE retry with fetcher/proxy if you have a specific logic
+      // location.href = ...
+    }
+  });
+
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  // For Safari / iOS
+  video.src = streamUrl;
+  video.addEventListener('loadedmetadata', function() {
+    video.play();
+  });
 }
 </script>
 
