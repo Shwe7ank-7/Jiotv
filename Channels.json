@@ -1,41 +1,48 @@
 {
   "categories": [
     "All",
+    "Favorites",
     "Sports",
     "Entertainment",
     "Movies",
-    "News"
+    "News",
+    "Kids",
+    "Lifestyle",
+    "Music",
+    "Devotional",
+    "Infotainment",
+    "Business News"
   ],
   "channels": [
     {
-      "id": "sports1",
-      "name": "Sports HD 1",
+      "id": "sony_ten_1_hd",
+      "name": "Sony Ten 1 HD",
       "category": "Sports",
-      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Sports+HD+1"
+      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Sony_Ten_1_HD.png"
     },
     {
-      "id": "sports2",
-      "name": "Sports HD 2",
+      "id": "star_sports_2_hd",
+      "name": "Star Sports 2 HD",
       "category": "Sports",
-      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Sports+HD+2"
+      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Star_Sports_HD2.png"
     },
     {
-      "id": "ent1",
-      "name": "Entertainment Plus",
-      "category": "Entertainment",
-      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Entertainment"
-    },
-    {
-      "id": "movie1",
-      "name": "Movie World",
+      "id": "zee_cinema_hd",
+      "name": "Zee Cinema HD",
       "category": "Movies",
-      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=Movies"
+      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Zee_Cinema_HD.png"
     },
     {
-      "id": "news1",
-      "name": "News 24x7",
+      "id": "cartoon_network_telugu",
+      "name": "Cartoon Network Telugu",
+      "category": "Kids",
+      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Cartoon_Network_Telugu.png"
+    },
+    {
+      "id": "aaj_tak",
+      "name": "Aaj Tak",
       "category": "News",
-      "logo": "https://dummyimage.com/300x300/111827/ffffff&text=News"
+      "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/Aaj_Tak.png"
     }
   ]
 }
