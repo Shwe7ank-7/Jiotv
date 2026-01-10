@@ -3,101 +3,116 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MOMIX JIOTV+</title>
+<title>MOMIXTV JIOTV+</title>
 <style>
-  :root { --bg: #0f172a; --card: #1e293b; --text: #fff; --accent: #3b82f6; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  :root { --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #f8fafc; --accent: #3b82f6; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
   
-  /* Navbar */
-  nav { position: sticky; top: 0; background: var(--card); padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-  .logo { font-weight: 800; font-size: 1.2rem; letter-spacing: 1px; }
-  
-  /* Search */
-  .search-box { padding: 15px; position: sticky; top: 60px; z-index: 40; background: var(--bg); }
-  input { width: 100%; padding: 12px; background: var(--card); border: 1px solid #334155; color: white; border-radius: 8px; outline: none; box-sizing: border-box; }
-  input:focus { border-color: var(--accent); }
+  header { position: sticky; top: 0; z-index: 50; background: var(--bg-secondary); padding: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+  .logo { font-weight: 800; font-size: 18px; letter-spacing: 0.5px; }
 
-  /* Grid */
+  .search-container { padding: 15px; background: var(--bg-primary); position: sticky; top: 60px; z-index: 40; }
+  input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: var(--bg-secondary); color: white; font-size: 16px; outline: none; box-sizing: border-box; }
+
   #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; padding: 15px; }
-  .card { background: var(--card); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.2s; position: relative; }
-  .card:active { transform: scale(0.95); }
-  .card img { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #000; display: block; }
-  .card-name { padding: 10px; font-size: 0.8rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-  .badge { position: absolute; top: 0; right: 0; background: var(--accent); font-size: 0.6rem; padding: 2px 6px; border-bottom-left-radius: 6px; }
   
-  #loader { text-align: center; margin-top: 50px; color: #888; }
+  .card { background: var(--bg-secondary); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform 0.1s; position: relative; }
+  .card:active { transform: scale(0.96); }
+  
+  .card img { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #000; display: block; }
+  .card-info { padding: 8px; text-align: center; }
+  .card-title { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  #loader { text-align: center; padding: 20px; color: #aaa; }
 </style>
 </head>
 <body>
 
-<nav>
-  <div class="logo">MOMIX JIOTV+</div>
+<header>
+  <div class="logo">MOMIXTV+</div>
   <div onclick="location.reload()" style="cursor:pointer">↻</div>
-</nav>
+</header>
 
-<div class="search-box">
-  <input type="text" id="search" placeholder="Search 800+ Live Channels..." oninput="filter()">
+<div class="search-container">
+  <input type="text" id="search" placeholder="Search Channels..." oninput="filterChannels()">
 </div>
 
 <div id="loader">Loading Channels...</div>
 <div id="grid"></div>
 
 <script>
-const M3U = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
-let channels = [];
+// The exact M3U your friend uses
+const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/main/jstar.m3u";
+let allChannels = [];
 
 window.onload = async () => {
   try {
-    const r = await fetch(M3U);
-    const t = await r.text();
-    parse(t);
-  } catch (e) { document.getElementById('loader').innerText = "Failed to Load"; }
+    const response = await fetch(M3U_URL);
+    const data = await response.text();
+    parseM3U(data);
+  } catch (error) {
+    document.getElementById('loader').innerText = "Error loading channels.";
+  }
 };
 
-function parse(text) {
-  const lines = text.split('\n');
-  let current = {};
+function parseM3U(data) {
+  const lines = data.split('\n');
+  let currentChannel = {};
   
   lines.forEach(line => {
     line = line.trim();
     if (line.startsWith('#EXTINF:')) {
-      const img = line.match(/tvg-logo="([^"]*)"/);
-      const group = line.match(/group-title="([^"]*)"/);
-      const name = line.split(',').pop().trim();
-      current = { 
-        name: name || "Channel", 
-        logo: img ? img[1] : "", 
-        group: group ? group[1] : "TV" 
-      };
+      // EXACT REGEX TO MATCH FRIEND'S PLAYER LOGIC
+      // We must capture the ID (tvg-id) to send it to the player
+      const idMatch = line.match(/tvg-id="(\d+)"/);
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const nameParts = line.split(',');
+      const name = nameParts[nameParts.length - 1].trim();
+      
+      if (idMatch) {
+         currentChannel = {
+            id: idMatch[1], // CAPTURE ID
+            name: name || "Unknown",
+            logo: (logoMatch && logoMatch[1]) ? logoMatch[1] : "https://via.placeholder.com/150?text=TV"
+         };
+      }
     } else if (line.startsWith('http')) {
-      current.url = line;
-      channels.push(current);
+      // Only add if we found an ID
+      if (currentChannel.id) {
+        allChannels.push(currentChannel);
+      }
+      currentChannel = {}; // Reset
     }
   });
+  
   document.getElementById('loader').style.display = 'none';
-  render(channels);
+  renderChannels(allChannels);
 }
 
-function render(list) {
+function renderChannels(channels) {
   const grid = document.getElementById('grid');
   grid.innerHTML = "";
-  list.slice(0, 500).forEach(c => {
-    const el = document.createElement('div');
-    el.className = 'card';
-    // IMPORTANT: Sending the URL to the player
-    el.onclick = () => location.href = `watch.html?play=${encodeURIComponent(c.url)}`;
-    el.innerHTML = `
-      <div class="badge">${c.group}</div>
+  
+  channels.slice(0, 1000).forEach(c => {
+    const card = document.createElement('div');
+    card.className = "card";
+    // CRITICAL: Send ?id= instead of ?play=
+    card.onclick = () => window.location.href = `watch.html?id=${c.id}`;
+    
+    card.innerHTML = `
       <img src="${c.logo}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=TV'">
-      <div class="card-name">${c.name}</div>
+      <div class="card-info">
+        <div class="card-title">${c.name}</div>
+      </div>
     `;
-    grid.appendChild(el);
+    grid.appendChild(card);
   });
 }
 
-function filter() {
-  const q = document.getElementById('search').value.toLowerCase();
-  render(channels.filter(c => c.name.toLowerCase().includes(q)));
+function filterChannels() {
+  const query = document.getElementById('search').value.toLowerCase();
+  const filtered = allChannels.filter(c => c.name.toLowerCase().includes(query));
+  renderChannels(filtered);
 }
 </script>
 </body>
