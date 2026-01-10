@@ -2,171 +2,382 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MOMIXTV JIOTV+</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JioTv - @Shwe7ank</title>
 <style>
-:root{
-  --bg:#0b1220;
-  --card:#1e293b;
-  --accent:#10b981;
-  --text:#fff;
-}
-.light{
-  --bg:#f5f5f5;
-  --card:#ffffff;
-  --text:#000;
-}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui;
-}
-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:14px;
-  background:#020617;
-}
-header h1{font-size:18px;margin:0}
-#menu{
-  position:fixed;
-  top:60px;
-  left:-260px;
-  width:240px;
-  height:100%;
-  background:#020617;
-  padding:10px;
-  transition:.3s;
-  overflow-y:auto;
-}
-#menu button{
-  width:100%;
-  padding:12px;
-  margin:6px 0;
-  border:none;
-  background:#334155;
-  color:#fff;
-  border-radius:10px;
-  text-align:left;
-}
-#menu button.active{background:var(--accent)}
-.search{
-  padding:14px;
-}
-.search input{
-  width:100%;
-  padding:12px;
-  border-radius:20px;
-  border:none;
-}
-.grid{
-  padding:14px;
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:14px;
-}
-.card{
-  background:var(--card);
-  border-radius:18px;
-  padding:14px;
-  text-align:center;
-  position:relative;
-}
-.card img{
-  width:90px;
-  height:90px;
-  border-radius:50%;
-  object-fit:contain;
-}
-.heart{
-  position:absolute;
-  top:10px;
-  right:10px;
-  font-size:18px;
-}
+  :root {
+    --bg-primary: #0f172a; /* Dark Slate */
+    --bg-secondary: #1e293b; /* Card Bg */
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent: #3b82f6; /* Blue */
+    --header-bg: #1e293b;
+  }
+
+  [data-theme="light"] {
+    --bg-primary: #f1f5f9;
+    --bg-secondary: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --header-bg: #ffffff;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--header-bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  }
+
+  .logo {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+  }
+
+  /* Search */
+  .search-container {
+    padding: 15px;
+  }
+  
+  input#search {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--bg-secondary);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 16px;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    position: fixed;
+    top: 60px;
+    left: -250px;
+    width: 240px;
+    height: calc(100% - 60px);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 99;
+    padding: 10px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+  }
+
+  #sidebar.active { left: 0; }
+
+  .cat-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 15px;
+    margin-bottom: 5px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .cat-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* Grid */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 15px;
+    padding: 15px;
+  }
+
+  .card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.2s;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+
+  .card:active { transform: scale(0.95); }
+
+  .card-img-container {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-info {
+    padding: 10px;
+    text-align: center;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .fav-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 18px;
+    color: white;
+    background: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    padding: 4px;
+    z-index: 5;
+  }
+  
+  .fav-icon.active { color: #ef4444; }
+
+  /* Overlay */
+  #overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 90;
+    display: none;
+  }
+  #overlay.active { display: block; }
 </style>
 </head>
-
 <body>
 
 <header>
-  <span onclick="toggleMenu()">☰</span>
-  <h1>MOMIXTV JIOTV+</h1>
-  <span onclick="toggleTheme()">⚙️</span>
+  <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+  <div class="logo">MOMIXTV JIOTV+</div>
+  <button class="icon-btn" onclick="toggleTheme()">☀</button>
 </header>
 
-<div id="menu"></div>
+<div id="overlay" onclick="toggleSidebar()"></div>
 
-<div class="search">
-  <input placeholder="Search channels..." oninput="search(this.value)">
+<div id="sidebar"></div>
+
+<div class="search-container">
+  <input type="text" id="search" placeholder="Search channels..." oninput="filterChannels()">
 </div>
 
-<div class="grid" id="grid"></div>
+<div id="grid"></div>
 
 <script>
-let DATA, CATEGORY="All", query="";
-const favs=JSON.parse(localStorage.getItem("favs")||"[]");
+// --- CONFIGURATION ---
+const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
+const JSON_URL = "channels.json"; // Only for categories list
 
-fetch("channels.json").then(r=>r.json()).then(j=>{
-  DATA=j;
-  loadMenu();
-  render();
-});
+// --- STATE ---
+let allChannels = [];
+let categories = [];
+let currentCategory = "All";
+let favorites = JSON.parse(localStorage.getItem('favs')) || [];
 
-function loadMenu(){
-  const m=document.getElementById("menu");
-  DATA.categories.forEach(c=>{
-    const b=document.createElement("button");
-    b.textContent=c;
-    b.onclick=()=>{
-      CATEGORY=c;
-      document.querySelectorAll("#menu button").forEach(x=>x.classList.remove("active"));
-      b.classList.add("active");
-      toggleMenu();
-      render();
+// --- INIT ---
+window.onload = async () => {
+  await loadCategories();
+  await loadM3U();
+};
+
+async function loadCategories() {
+  try {
+    const res = await fetch(JSON_URL);
+    const data = await res.json();
+    categories = data.categories;
+    renderSidebar();
+  } catch (e) { console.error("Err categories", e); }
+}
+
+async function loadM3U() {
+  try {
+    const res = await fetch(M3U_URL);
+    const text = await res.text();
+    parseM3U(text);
+  } catch (e) {
+    document.getElementById('grid').innerHTML = "<p style='padding:20px'>Failed to load channels.</p>";
+  }
+}
+
+// --- PARSER ---
+function parseM3U(data) {
+  const lines = data.split('\n');
+  let currentChannel = {};
+  
+  lines.forEach(line => {
+    line = line.trim();
+    if (line.startsWith('#EXTINF:')) {
+      // Extract metadata
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      const nameMatch = line.split(',')[1];
+      
+      currentChannel = {
+        name: nameMatch ? nameMatch.trim() : "Unknown",
+        logo: logoMatch ? logoMatch[1] : "https://via.placeholder.com/150?text=No+Logo",
+        category: groupMatch ? groupMatch[1] : "Other"
+      };
+    } else if (line.startsWith('http')) {
+      // Line is URL, push channel
+      currentChannel.url = line;
+      // Normalize category
+      currentChannel.category = normalizeCategory(currentChannel.category);
+      allChannels.push(currentChannel);
+    }
+  });
+  renderGrid();
+}
+
+// Helper to map M3U categories to our simple JSON list
+function normalizeCategory(cat) {
+  if(!cat) return "Other";
+  cat = cat.toLowerCase();
+  if(cat.includes('sport')) return "Sports";
+  if(cat.includes('movie')) return "Movies";
+  if(cat.includes('news')) return "News";
+  if(cat.includes('kid')) return "Kids";
+  if(cat.includes('music')) return "Music";
+  if(cat.includes('entertain')) return "Entertainment";
+  return "All"; // Default fallback if not matched specifically, or keep original
+}
+
+// --- RENDER ---
+function renderSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.innerHTML = "";
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = `cat-btn ${cat === currentCategory ? 'active' : ''}`;
+    btn.innerText = cat;
+    btn.onclick = () => {
+      currentCategory = cat;
+      renderSidebar();
+      toggleSidebar();
+      filterChannels();
     };
-    m.appendChild(b);
+    sb.appendChild(btn);
   });
 }
 
-function render(){
-  const g=document.getElementById("grid");
-  g.innerHTML="";
-  DATA.channels.filter(c=>{
-    if(CATEGORY==="Favorites") return favs.includes(c.id);
-    if(CATEGORY!=="All" && c.category!==CATEGORY) return false;
-    return c.name.toLowerCase().includes(query);
-  }).forEach(c=>{
-    const d=document.createElement("div");
-    d.className="card";
-    d.innerHTML=`
-      <div class="heart" onclick="fav(event,'${c.id}')">${favs.includes(c.id)?"❤️":"🤍"}</div>
-      <img src="${c.logo}">
-      <p>${c.name}</p>
-      <small>${c.category}</small>
+function renderGrid(channels = allChannels) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = "";
+  
+  // Filter Logic
+  let filtered = channels;
+  if (currentCategory === "Favorites") {
+    filtered = channels.filter(c => favorites.includes(c.url));
+  } else if (currentCategory !== "All") {
+    filtered = channels.filter(c => {
+       // Simple matching logic
+       return c.category === currentCategory || (currentCategory === "Other" && c.category === "All");
+    });
+  }
+  
+  // Search Logic
+  const query = document.getElementById('search').value.toLowerCase();
+  if(query) {
+    filtered = filtered.filter(c => c.name.toLowerCase().includes(query));
+  }
+
+  // Render Limit for performance (first 100 or lazy load)
+  filtered.slice(0, 200).forEach(c => {
+    const isFav = favorites.includes(c.url);
+    const card = document.createElement('div');
+    card.className = "card";
+    card.onclick = (e) => {
+      if(e.target.classList.contains('fav-icon')) return;
+      playChannel(c.url);
+    };
+    
+    card.innerHTML = `
+      <div class="fav-icon ${isFav ? 'active' : ''}" onclick="toggleFav('${c.url}')">
+        ${isFav ? '♥' : '♡'}
+      </div>
+      <div class="card-img-container">
+        <img src="${c.logo}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=${c.name.charAt(0)}'">
+      </div>
+      <div class="card-info">
+        <div class="card-title">${c.name}</div>
+      </div>
     `;
-    d.onclick=()=>location.href=`watch.html?id=${c.id}`;
-    g.appendChild(d);
+    grid.appendChild(card);
   });
 }
 
-function fav(e,id){
-  e.stopPropagation();
-  if(favs.includes(id)) favs.splice(favs.indexOf(id),1);
-  else favs.push(id);
-  localStorage.setItem("favs",JSON.stringify(favs));
-  render();
+function filterChannels() {
+  renderGrid();
 }
-function toggleMenu(){
-  const m=document.getElementById("menu");
-  m.style.left=m.style.left==="0px"?"-260px":"0px";
-}
-function search(v){query=v.toLowerCase();render()}
-function toggleTheme(){document.body.classList.toggle("light")}
-</script>
 
+// --- ACTIONS ---
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('overlay');
+  sb.classList.toggle('active');
+  ov.classList.toggle('active');
+}
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+}
+
+function toggleFav(url) {
+  if(favorites.includes(url)) {
+    favorites = favorites.filter(u => u !== url);
+  } else {
+    favorites.push(url);
+  }
+  localStorage.setItem('favs', JSON.stringify(favorites));
+  renderGrid(); // Re-render to update heart icon
+}
+
+function playChannel(url) {
+  // Pass URL to watch page. encoding it ensures special chars don't break logic
+  window.location.href = `watch.html?play=${encodeURIComponent(url)}`;
+}
+</script>
 </body>
 </html>
