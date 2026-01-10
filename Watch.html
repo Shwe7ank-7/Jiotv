@@ -3,151 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Live Player</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<title>Ultimate Player</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0"></script>
 <style>
-  body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  body { margin: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: sans-serif; }
   
   #video-container {
+    flex: 1;
     position: relative;
-    width: 100%;
-    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #000;
   }
   
   video { width: 100%; height: 100%; object-fit: contain; }
 
-  /* Back Button */
+  /* Controls Overlay */
+  .overlay {
+    position: absolute; top: 0; left: 0; width: 100%; padding: 20px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    z-index: 10; display: flex; align-items: center; gap: 15px;
+  }
+
   .back-btn {
-    position: absolute;
-    top: 20px; left: 20px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white; padding: 10px 20px;
-    border-radius: 8px; text-decoration: none;
-    font-family: sans-serif; font-weight: bold;
-    border: 1px solid rgba(255,255,255,0.3);
-    z-index: 20;
+    background: rgba(255,255,255,0.1); color: white;
+    text-decoration: none; padding: 8px 16px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.2); font-size: 14px;
     backdrop-filter: blur(5px);
   }
 
-  /* Status / Error Message */
-  #status {
+  /* Status Box */
+  #status-box {
     position: absolute;
-    color: #fff;
-    font-family: monospace;
-    background: rgba(0,0,0,0.8);
-    padding: 15px;
-    border-radius: 8px;
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid #333;
+    padding: 20px;
+    border-radius: 10px;
     text-align: center;
-    z-index: 10;
-    max-width: 80%;
+    color: #fff;
+    max-width: 90%;
+    display: none; /* Hidden by default */
   }
+  
+  .error-code { color: #ef4444; font-weight: bold; margin-bottom: 10px; display: block; }
   .retry-btn {
-    display: block; margin-top: 10px;
-    padding: 8px 16px; background: #2563eb;
-    color: white; border: none; border-radius: 4px;
-    cursor: pointer;
+    background: #3b82f6; color: white; border: none;
+    padding: 10px 20px; border-radius: 5px; cursor: pointer;
+    margin-top: 15px; font-weight: bold;
   }
 </style>
 </head>
 <body>
 
-<a href="index.html" class="back-btn">← Back</a>
+<div class="overlay">
+  <a href="index.html" class="back-btn">← Back to Channels</a>
+  <span style="color:#aaa; font-size:12px;">Live Stream</span>
+</div>
 
 <div id="video-container">
-  <div id="status">Initializing...</div>
+  <div id="status-box">
+    <span class="error-code" id="error-msg">Connecting...</span>
+    <div id="debug-info" style="font-size:11px; color:#888; margin-bottom:10px;"></div>
+    <div class="loader"></div>
+    <button class="retry-btn" onclick="location.reload()">Retry Connection</button>
+  </div>
   <video id="video" controls autoplay playsinline></video>
 </div>
 
 <script>
-// --- SETTINGS ---
-const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
+// --- CONFIGURATION ---
+const WORKER = "https://pkll.xojiv79335.workers.dev/"; 
 
 const video = document.getElementById('video');
-const status = document.getElementById('status');
+const statusBox = document.getElementById('status-box');
+const errorMsg = document.getElementById('error-msg');
+const debugInfo = document.getElementById('debug-info');
+
+// Get params
 const urlParams = new URLSearchParams(window.location.search);
-const originalStreamUrl = urlParams.get('play');
+const rawStreamUrl = urlParams.get('play');
 
-// We will try these formats in order
-const attempts = [
-  // 1. Worker as Proxy Parameter (Most common for newer scripts)
-  { type: 'Proxy Param', url: (target) => `${WORKER_URL}?url=${encodeURIComponent(target)}` },
-  
-  // 2. Direct Append (Old style)
-  { type: 'Direct Append', url: (target) => `${WORKER_URL}${target}` },
-  
-  // 3. Direct Play (In case link works without worker)
-  { type: 'Direct Stream', url: (target) => target }
-];
-
-let currentAttempt = 0;
-let hls = null;
-
-if (!originalStreamUrl) {
-  status.innerHTML = "No channel selected.<br><a href='index.html' style='color:#3b82f6'>Go Back</a>";
+if (!rawStreamUrl) {
+  showError("No Channel Selected", "Please go back and click a channel.");
 } else {
-  tryPlay();
+  startPlayer();
 }
 
-function tryPlay() {
-  if (currentAttempt >= attempts.length) {
-    status.innerHTML = `
-      Stream failed to load.<br>
-      <small>The worker or source might be offline.</small>
-      <button class="retry-btn" onclick="location.reload()">Try Again</button>
-    `;
-    return;
+function startPlayer() {
+  // 1. Construct the Safe URL
+  // We FORCE the worker because browsers block mixed content (HTTP vs HTTPS)
+  // If the stream is http://, it MUST go through the https:// worker.
+  
+  let finalUrl = rawStreamUrl;
+  
+  // Logic: Append URL to worker if not already there
+  if (!rawStreamUrl.includes(WORKER)) {
+     // Some workers need ?url=, some just append. We try the safest query param method first.
+     // If your worker is a direct proxy, it might need just the URL appended.
+     // Let's try the direct append method first as it's common for 'pkll' scripts.
+     finalUrl = WORKER + rawStreamUrl;
   }
 
-  const method = attempts[currentAttempt];
-  const finalUrl = method.url(originalStreamUrl);
-  
-  status.innerText = `Connecting (${method.type})...`;
-  console.log(`Attempt ${currentAttempt + 1}: ${finalUrl}`);
+  console.log("Target:", finalUrl);
 
   if (Hls.isSupported()) {
-    if(hls) hls.destroy(); // Clean up previous attempt
-    
-    hls = new Hls({
-      manifestLoadingTimeOut: 15000,
-      levelLoadingTimeOut: 15000,
-      fragLoadingTimeOut: 15000
+    const hls = new Hls({
+      debug: false,
+      enableWorker: true,
+      lowLatencyMode: true,
+      backBufferLength: 90
     });
 
     hls.loadSource(finalUrl);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      status.style.display = 'none'; // Hide text on success
-      video.play().catch(e => console.log("Autoplay blocked", e));
+      hideError();
+      video.play().catch(() => {
+        showError("Autoplay Blocked", "Tap the screen to unmute/play.");
+      });
     });
 
     hls.on(Hls.Events.ERROR, (event, data) => {
       if (data.fatal) {
-        console.warn(`Attempt ${currentAttempt + 1} Failed:`, data);
-        currentAttempt++;
-        tryPlay(); // Try next method
+        console.error("Fatal Error:", data);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          showError("Network Error", "The worker could not fetch this stream. <br>The channel might be offline.");
+          debugInfo.innerText = "Try clicking 'Retry' or select another channel.";
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        } else {
+          showError("Playback Failed", "Code: " + data.details);
+        }
       }
     });
 
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari Fallback
+    // iOS / Safari
     video.src = finalUrl;
-    
-    video.onloadedmetadata = () => {
-      status.style.display = 'none';
-      video.play();
-    };
-    
-    video.onerror = () => {
-      currentAttempt++;
-      tryPlay();
-    };
+    video.addEventListener('loadedmetadata', () => video.play());
+    video.addEventListener('error', (e) => {
+        showError("iOS Error", "Safari could not load this stream.");
+    });
   }
+}
+
+function showError(title, desc) {
+  statusBox.style.display = 'block';
+  errorMsg.innerText = title;
+  debugInfo.innerHTML = desc;
+  video.style.opacity = 0.3; // Dim video
+}
+
+function hideError() {
+  statusBox.style.display = 'none';
+  video.style.opacity = 1;
 }
 </script>
 </body>
-</html>
+  </html>
+  
