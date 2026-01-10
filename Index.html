@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MOMIXTV JIOTV+</title>
+<title>Shwe7ank JIOTV+</title>
 <style>
   :root { --bg-primary: #0f172a; --bg-secondary: #1e293b; --text-primary: #f8fafc; --accent: #3b82f6; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
   
   header { position: sticky; top: 0; z-index: 50; background: var(--bg-secondary); padding: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
   .logo { font-weight: 800; font-size: 18px; letter-spacing: 0.5px; }
@@ -29,7 +29,7 @@
 <body>
 
 <header>
-  <div class="logo">MOMIXTV+</div>
+  <div class="logo">SHWE7ANK</div>
   <div onclick="location.reload()" style="cursor:pointer">↻</div>
 </header>
 
@@ -41,8 +41,7 @@
 <div id="grid"></div>
 
 <script>
-// The exact M3U your friend uses
-const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/main/jstar.m3u";
+const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
 let allChannels = [];
 
 window.onload = async () => {
@@ -62,8 +61,7 @@ function parseM3U(data) {
   lines.forEach(line => {
     line = line.trim();
     if (line.startsWith('#EXTINF:')) {
-      // EXACT REGEX TO MATCH FRIEND'S PLAYER LOGIC
-      // We must capture the ID (tvg-id) to send it to the player
+      // Matches friend's ID logic exactly
       const idMatch = line.match(/tvg-id="(\d+)"/);
       const logoMatch = line.match(/tvg-logo="([^"]*)"/);
       const nameParts = line.split(',');
@@ -71,17 +69,16 @@ function parseM3U(data) {
       
       if (idMatch) {
          currentChannel = {
-            id: idMatch[1], // CAPTURE ID
+            id: idMatch[1],
             name: name || "Unknown",
             logo: (logoMatch && logoMatch[1]) ? logoMatch[1] : "https://via.placeholder.com/150?text=TV"
          };
       }
     } else if (line.startsWith('http')) {
-      // Only add if we found an ID
       if (currentChannel.id) {
         allChannels.push(currentChannel);
       }
-      currentChannel = {}; // Reset
+      currentChannel = {}; 
     }
   });
   
@@ -96,7 +93,7 @@ function renderChannels(channels) {
   channels.slice(0, 1000).forEach(c => {
     const card = document.createElement('div');
     card.className = "card";
-    // CRITICAL: Send ?id= instead of ?play=
+    // Sends ID to player
     card.onclick = () => window.location.href = `watch.html?id=${c.id}`;
     
     card.innerHTML = `
