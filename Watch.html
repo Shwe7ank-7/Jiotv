@@ -1,136 +1,198 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JioTV Shaka Player</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.min.css">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JioTV Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" />
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        
-        #video-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #000;
-        }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: system-ui, sans-serif; }
+      
+      .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+      video { width: 100%; height: 100%; background: #000; object-fit: contain; }
+      
+      /* Hide default spinner */
+      .shaka-spinner-container { display: none !important; }
 
-        video { 
-            width: 100%; 
-            height: 100%; 
-            outline: none;
-        }
+      /* Channel Info Overlay */
+      .channel-info {
+        position: absolute; top: 0; left: 0; right: 0;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
+        padding: 1.5rem; display: flex; align-items: center; z-index: 10;
+        transition: opacity 0.5s ease;
+      }
+      .channel-info.hidden { opacity: 0; pointer-events: none; }
+      .channel-logo { width: 50px; height: 50px; margin-right: 15px; border-radius: 50%; background: #222; object-fit: cover; }
+      .channel-name { font-size: 1.2rem; font-weight: 600; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+      
+      /* Custom Back Button */
+      .back-btn {
+        margin-right: 15px; color: white; text-decoration: none;
+        font-size: 1.5rem; font-weight: bold; cursor: pointer;
+      }
 
-        /* Custom Back Button */
-        .back-btn {
-            position: absolute;
-            top: 20px; left: 20px;
-            z-index: 100;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            border: 1px solid rgba(255,255,255,0.2);
-            font-weight: bold;
-        }
-
-        /* Error/Status Log */
-        #log {
-            position: absolute;
-            bottom: 20px; left: 20px;
-            color: #ff4444;
-            font-size: 12px;
-            z-index: 90;
-            pointer-events: none;
-        }
+      /* Messages */
+      .center-msg {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        color: white; text-align: center; z-index: 5; font-weight: 500;
+      }
+      .error-box {
+        background: rgba(20, 0, 0, 0.9); padding: 2rem; border-radius: 10px;
+        border: 1px solid #ff4444; color: #ff4444; display: none;
+      }
     </style>
-</head>
-<body>
-
-    <a href="index.html" class="back-btn">← Back</a>
+  </head>
+  <body>
     
-    <div id="video-container" data-shaka-player-container>
-        <video id="video" autoplay data-shaka-player></video>
+    <div class="channel-info" id="channelInfo">
+      <a href="index.html" class="back-btn">←</a>
+      <img class="channel-logo" id="channelLogo" src="" onerror="this.style.display='none'" />
+      <div class="channel-name" id="channelName">Connecting...</div>
     </div>
-    
-    <div id="log"></div>
+
+    <div class="shaka-video-container" data-shaka-player>
+      <video autoplay playsinline poster="https://via.placeholder.com/1280x720/000000/FFFFFF?text=JioTV+Loading..."></video>
+    </div>
+
+    <div class="center-msg" id="loadingMessage">Initializing Secure Stream...</div>
+    <div class="center-msg error-box" id="errorMessage">
+      <h3 style="margin-bottom:10px">Stream Error</h3>
+      <p id="errorText"></p>
+      <button onclick="location.reload()" style="margin-top:15px; padding:8px 16px; cursor:pointer;">Retry</button>
+    </div>
 
     <script>
-        // --- YOUR WORKER CONFIG ---
-        const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
+      // --- CONFIGURATION ---
+      const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
+      const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
 
-        const manifestUri = new URLSearchParams(window.location.search).get('play');
-        const logBox = document.getElementById('log');
+      document.addEventListener('DOMContentLoaded', async () => {
+        
+        // 1. Get the URL passed from Index page
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUrl = urlParams.get('play');
 
-        function log(msg) {
-            console.log(msg);
-            logBox.innerText = msg;
+        if (!targetUrl) {
+          showError("No channel selected. Please go back.");
+          return;
         }
 
-        async function init() {
-            if (!manifestUri) {
-                log("Error: No Channel URL Found");
-                return;
-            }
-
-            // 1. Install Polyfills (CRITICAL for Shaka)
-            shaka.polyfill.installAll();
-
-            if (!shaka.Player.isBrowserSupported()) {
-                log('Browser not supported!');
-                return;
-            }
-
-            const video = document.getElementById('video');
-            const player = new shaka.Player(video);
-            const ui = new shaka.ui.Overlay(player, document.getElementById('video-container'), video);
-
-            // 2. Error Handling
-            player.addEventListener('error', (event) => {
-                log('Error code: ' + event.detail.code + ' object: ' + event.detail);
-            });
-
-            // 3. Network Filters (The part you asked for: UA, Referer, Cookie)
-            player.getNetworkingEngine().registerRequestFilter(function(type, request) {
-                // Only modify license or stream requests
-                if (type == shaka.net.NetworkingEngine.RequestType.MANIFEST || 
-                    type == shaka.net.NetworkingEngine.RequestType.SEGMENT ||
-                    type == shaka.net.NetworkingEngine.RequestType.LICENSE) {
-
-                    // A. Add Headers (If browser allows)
-                    request.headers['User-Agent'] = 'plaYtv/7.0.8 (Linux;Android 9) ExoPlayerLib/2.11.5';
-                    request.headers['Referer'] = 'https://jiotv.com/';
-                    
-                    // B. Cookie Logic: If your worker requires sending the cookie header manually
-                    // request.headers['Cookie'] = 'your_cookie_here'; 
-                    // (Usually the Worker handles the cookie, so we leave this commented unless you have a static cookie)
+        // 2. Load M3U to find keys for this specific channel
+        async function fetchChannelData(urlToFind) {
+          try {
+            document.getElementById('loadingMessage').innerText = "Fetching License Keys...";
+            const res = await fetch(M3U_URL);
+            const text = await res.text();
+            
+            const lines = text.split('\n');
+            let current = { licenseKey: '', cookie: '', logo: '', name: '' };
+            
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              
+              if (line.startsWith('#EXTINF:')) {
+                const logo = line.match(/tvg-logo="([^"]*)"/);
+                const name = line.split(',').pop();
+                current.logo = logo ? logo[1] : '';
+                current.name = name ? name.trim() : 'Live TV';
+              } 
+              else if (line.includes('license_key=')) {
+                 // Extract Kodi style key
+                 const parts = line.split('license_key=')[1].split(':');
+                 if(parts.length >= 2) current.licenseKey = parts[0] + ":" + parts[1];
+              }
+              else if (line.startsWith('#EXTHTTP:')) {
+                 try {
+                   const json = JSON.parse(line.replace('#EXTHTTP:', ''));
+                   if(json.cookie) current.cookie = json.cookie;
+                 } catch(e) {}
+              }
+              else if (line.startsWith('http')) {
+                // MATCH FOUND?
+                if (line.trim() === urlToFind.trim()) {
+                  current.streamUrl = line.trim();
+                  return current;
                 }
-            });
-
-            // 4. Construct Final URL (Route through Worker)
-            // We force the worker proxy to ensure headers are handled server-side if client-side fails
-            let finalUrl = manifestUri;
-            if(!manifestUri.includes('workers.dev')) {
-                // Standard JioTV Proxy pattern
-                finalUrl = WORKER_URL + manifestUri;
+                // Reset if not match
+                current = { licenseKey: '', cookie: '', logo: '', name: '' };
+              }
             }
-
-            log("Loading: " + finalUrl);
-
-            try {
-                // 5. Load Stream
-                await player.load(finalUrl);
-                log(""); // Clear errors on success
-            } catch (e) {
-                log('Load failed: ' + e.code);
-            }
+          } catch (e) {
+            showError("Failed to load playlist data.");
+          }
+          return null;
         }
 
-        document.addEventListener('DOMContentLoaded', init);
+        // 3. Initialize Shaka Player
+        async function initPlayer(channel) {
+           document.getElementById('loadingMessage').innerText = "Starting Player...";
+           
+           // Update UI
+           document.getElementById('channelName').innerText = channel.name;
+           document.getElementById('channelLogo').src = channel.logo;
+           setTimeout(() => document.getElementById('channelInfo').classList.add('hidden'), 4000);
+
+           shaka.polyfill.installAll();
+           if (!shaka.Player.isBrowserSupported()) {
+             showError('Browser not supported');
+             return;
+           }
+
+           const video = document.querySelector('video');
+           const player = new shaka.Player(video);
+           const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
+
+           // DRM Config
+           let drmConfig = {};
+           if (channel.licenseKey) {
+             const [kId, kVal] = channel.licenseKey.split(':');
+             drmConfig = { clearKeys: { [kId]: kVal } };
+           }
+
+           player.configure({
+             drm: drmConfig,
+             streaming: {
+               bufferingGoal: 30,
+               useNativeHlsOnSafari: true
+             }
+           });
+
+           // HEADER INJECTION (Critical for Jio)
+           player.getNetworkingEngine().registerRequestFilter((type, request) => {
+             request.headers['User-Agent'] = 'plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6';
+             request.headers['Referer'] = 'https://jiotv.com/';
+             if(channel.cookie) request.headers['Cookie'] = channel.cookie;
+           });
+
+           // WORKER PROXY LOGIC
+           // We wrap the stream URL with your worker to bypass CORS
+           const finalStreamUrl = WORKER_URL + channel.streamUrl;
+           
+           try {
+             await player.load(finalStreamUrl);
+             document.getElementById('loadingMessage').style.display = 'none';
+           } catch (e) {
+             console.error(e);
+             showError(`Playback Error: ${e.code}`);
+           }
+        }
+
+        // Run
+        const channelData = await fetchChannelData(targetUrl);
+        if(channelData) {
+          initPlayer(channelData);
+        } else {
+          showError("Channel data not found in playlist.");
+        }
+      });
+
+      function showError(msg) {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('errorMessage').style.display = 'block';
+        document.getElementById('errorText').innerText = msg;
+      }
     </script>
-</body>
+  </body>
 </html>
