@@ -4,195 +4,252 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JioTV Player</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: system-ui, sans-serif; }
-      
-      .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
-      video { width: 100%; height: 100%; background: #000; object-fit: contain; }
-      
-      /* Hide default spinner */
-      .shaka-spinner-container { display: none !important; }
-
-      /* Channel Info Overlay */
+      html, body {
+        background: #000;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .shaka-video-container {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        object-fit: contain;
+      }
+      /* Hide default spinner to use ours if needed */
+      .shaka-spinner-container,
+      .shaka-spinner,
+      .shaka-spinner-svg {
+        display: none !important; 
+      }
       .channel-info {
-        position: absolute; top: 0; left: 0; right: 0;
+        position: absolute;
+        top: 0; left: 0; right: 0;
         background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
-        padding: 1.5rem; display: flex; align-items: center; z-index: 10;
-        transition: opacity 0.5s ease;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        z-index: 10;
+        transition: opacity 0.3s ease;
       }
-      .channel-info.hidden { opacity: 0; pointer-events: none; }
-      .channel-logo { width: 50px; height: 50px; margin-right: 15px; border-radius: 50%; background: #222; object-fit: cover; }
-      .channel-name { font-size: 1.2rem; font-weight: 600; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+      .channel-info.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .channel-logo {
+        width: 50px;
+        height: 50px;
+        margin-right: 15px;
+        border-radius: 50%;
+        background: #fff;
+        object-fit: contain;
+        padding: 2px;
+      }
+      .channel-name {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      }
+      .loading {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 1.2rem;
+        text-align: center;
+        z-index: 5;
+        font-weight: bold;
+      }
+      .error {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ff4444;
+        font-size: 1.1rem;
+        text-align: center;
+        background: rgba(20, 20, 20, 0.95);
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid #333;
+        max-width: 85%;
+        z-index: 50;
+      }
+      .error.hidden { display: none; }
       
-      /* Custom Back Button */
+      /* Back button addition for UX */
       .back-btn {
-        margin-right: 15px; color: white; text-decoration: none;
-        font-size: 1.5rem; font-weight: bold; cursor: pointer;
-      }
-
-      /* Messages */
-      .center-msg {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        color: white; text-align: center; z-index: 5; font-weight: 500;
-      }
-      .error-box {
-        background: rgba(20, 0, 0, 0.9); padding: 2rem; border-radius: 10px;
-        border: 1px solid #ff4444; color: #ff4444; display: none;
+        position: absolute; top: 20px; right: 20px;
+        background: rgba(255,255,255,0.2); color: white;
+        padding: 8px 16px; border-radius: 20px;
+        text-decoration: none; font-size: 14px;
+        backdrop-filter: blur(5px); z-index: 20;
       }
     </style>
   </head>
   <body>
+    <a href="index.html" class="back-btn">✕ Close</a>
+
+    <div class="channel-info hidden" id="channelInfo">
+      <img class="channel-logo" id="channelLogo" src="" alt="Channel Logo" onerror="this.style.display='none'" />
+      <div class="channel-name" id="channelName">Loading...</div>
+    </div>
     
-    <div class="channel-info" id="channelInfo">
-      <a href="index.html" class="back-btn">←</a>
-      <img class="channel-logo" id="channelLogo" src="" onerror="this.style.display='none'" />
-      <div class="channel-name" id="channelName">Connecting...</div>
+    <div class="shaka-video-container" data-shaka-player="">
+      <video autoplay playsinline id="video"></video>
     </div>
-
-    <div class="shaka-video-container" data-shaka-player>
-      <video autoplay playsinline poster="https://via.placeholder.com/1280x720/000000/FFFFFF?text=JioTV+Loading..."></video>
+    
+    <div class="loading" id="loadingMessage">
+      Initializing Player...
     </div>
-
-    <div class="center-msg" id="loadingMessage">Initializing Secure Stream...</div>
-    <div class="center-msg error-box" id="errorMessage">
-      <h3 style="margin-bottom:10px">Stream Error</h3>
-      <p id="errorText"></p>
-      <button onclick="location.reload()" style="margin-top:15px; padding:8px 16px; cursor:pointer;">Retry</button>
+    
+    <div class="error hidden" id="errorMessage">
+      <h2 style="color:white; margin-bottom:10px;">Playback Error</h2>
+      <p id="errorText" style="color:#aaa;"></p>
+      <button onclick="location.reload()" style="margin-top:15px; padding:8px 20px; background:#007bff; color:white; border:none; border-radius:4px;">Retry</button>
     </div>
 
     <script>
       // --- CONFIGURATION ---
-      const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
       const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
+      const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
 
       document.addEventListener('DOMContentLoaded', async () => {
         
-        // 1. Get the URL passed from Index page
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetUrl = urlParams.get('play');
-
-        if (!targetUrl) {
-          showError("No channel selected. Please go back.");
-          return;
+        function getPlayUrlFromParams() {
+           const params = new URLSearchParams(window.location.search);
+           return params.get('play') || params.get('id'); // Supports both ?play=URL and ?id=URL
+        }
+        
+        function showError(message) {
+          const errorText = document.getElementById('errorText');
+          const errorMessage = document.getElementById('errorMessage');
+          errorText.innerHTML = message;
+          errorMessage.classList.remove('hidden');
+          document.getElementById('loadingMessage').style.display = 'none';
+        }
+        
+        // Hide info overlay
+        function hideChannelInfo() {
+          const info = document.getElementById('channelInfo');
+          setTimeout(() => { info.classList.add('hidden'); }, 5000);
         }
 
-        // 2. Load M3U to find keys for this specific channel
-        async function fetchChannelData(urlToFind) {
-          try {
-            document.getElementById('loadingMessage').innerText = "Fetching License Keys...";
-            const res = await fetch(M3U_URL);
-            const text = await res.text();
-            
-            const lines = text.split('\n');
-            let current = { licenseKey: '', cookie: '', logo: '', name: '' };
-            
-            for (let i = 0; i < lines.length; i++) {
-              const line = lines[i].trim();
-              
-              if (line.startsWith('#EXTINF:')) {
-                const logo = line.match(/tvg-logo="([^"]*)"/);
-                const name = line.split(',').pop();
-                current.logo = logo ? logo[1] : '';
-                current.name = name ? name.trim() : 'Live TV';
-              } 
-              else if (line.includes('license_key=')) {
-                 // Extract Kodi style key
-                 const parts = line.split('license_key=')[1].split(':');
-                 if(parts.length >= 2) current.licenseKey = parts[0] + ":" + parts[1];
-              }
-              else if (line.startsWith('#EXTHTTP:')) {
-                 try {
-                   const json = JSON.parse(line.replace('#EXTHTTP:', ''));
-                   if(json.cookie) current.cookie = json.cookie;
-                 } catch(e) {}
-              }
-              else if (line.startsWith('http')) {
-                // MATCH FOUND?
-                if (line.trim() === urlToFind.trim()) {
-                  current.streamUrl = line.trim();
-                  return current;
-                }
-                // Reset if not match
-                current = { licenseKey: '', cookie: '', logo: '', name: '' };
-              }
-            }
-          } catch (e) {
-            showError("Failed to load playlist data.");
+        // --- PLAYER INIT ---
+        async function initPlayer(streamUrl) {
+          shaka.polyfill.installAll();
+
+          if (!shaka.Player.isBrowserSupported()) {
+            showError('Browser not supported');
+            return;
           }
-          return null;
-        }
 
-        // 3. Initialize Shaka Player
-        async function initPlayer(channel) {
-           document.getElementById('loadingMessage').innerText = "Starting Player...";
-           
-           // Update UI
-           document.getElementById('channelName').innerText = channel.name;
-           document.getElementById('channelLogo').src = channel.logo;
-           setTimeout(() => document.getElementById('channelInfo').classList.add('hidden'), 4000);
+          const video = document.getElementById('video');
+          const player = new shaka.Player(video);
+          const container = document.querySelector('.shaka-video-container');
+          const ui = new shaka.ui.Overlay(player, container, video);
 
-           shaka.polyfill.installAll();
-           if (!shaka.Player.isBrowserSupported()) {
-             showError('Browser not supported');
-             return;
-           }
+          // Configure UI
+          ui.configure({
+            controlPanelElements: [
+               'play_pause', 'time_and_duration', 'mute', 'volume',
+               'spacer', 'quality', 'fullscreen'
+            ],
+            seekBarColors: {
+               base: 'rgba(255, 255, 255, 0.3)',
+               buffered: 'rgba(255, 255, 255, 0.54)',
+               played: 'rgb(59, 130, 246)' // Blue accent
+            }
+          });
 
-           const video = document.querySelector('video');
-           const player = new shaka.Player(video);
-           const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
+          // --- CRITICAL LOGIC: WORKER WRAPPER ---
+          // Your list is standard M3U. It does NOT have DRM keys inside it.
+          // We MUST route it through the worker to get the stream.
+          let finalUrl = streamUrl;
+          
+          if (!streamUrl.includes('workers.dev')) {
+             // Standard wrapping logic for "pkll" workers
+             finalUrl = WORKER_URL + streamUrl;
+          }
+          
+          console.log("Playing via:", finalUrl);
 
-           // DRM Config
-           let drmConfig = {};
-           if (channel.licenseKey) {
-             const [kId, kVal] = channel.licenseKey.split(':');
-             drmConfig = { clearKeys: { [kId]: kVal } };
-           }
+          // Configure Network (Headers)
+          player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            // Your friend's header logic (Adapted for your Worker)
+            if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+                type === shaka.net.NetworkingEngine.RequestType.SEGMENT ||
+                type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
+                
+                // These help bypass Geo-blocks
+                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
+                // request.headers['Referer'] = "https://jiotv.com"; 
+                // ^ Commented Referer out as Workers often handle this better server-side 
+                //   and sending it from client can cause CORS errors.
+            }
+          });
 
-           player.configure({
-             drm: drmConfig,
-             streaming: {
-               bufferingGoal: 30,
-               useNativeHlsOnSafari: true
+          player.configure({
+            streaming: {
+              lowLatencyMode: true,
+              bufferingGoal: 30, // Increased for stability
+              rebufferingGoal: 5,
+              retryParameters: { maxAttempts: 5, baseDelay: 1000 }
+            }
+          });
+
+          // Error Listeners
+          player.addEventListener('error', (event) => {
+             console.error('Shaka Error:', event.detail);
+             if (event.detail.code === 7002 || event.detail.code === 1002) {
+                 showError("Network Error: Worker could not fetch stream.<br>Channel might be offline.");
              }
-           });
+          });
 
-           // HEADER INJECTION (Critical for Jio)
-           player.getNetworkingEngine().registerRequestFilter((type, request) => {
-             request.headers['User-Agent'] = 'plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6';
-             request.headers['Referer'] = 'https://jiotv.com/';
-             if(channel.cookie) request.headers['Cookie'] = channel.cookie;
-           });
-
-           // WORKER PROXY LOGIC
-           // We wrap the stream URL with your worker to bypass CORS
-           const finalStreamUrl = WORKER_URL + channel.streamUrl;
-           
-           try {
-             await player.load(finalStreamUrl);
-             document.getElementById('loadingMessage').style.display = 'none';
-           } catch (e) {
-             console.error(e);
-             showError(`Playback Error: ${e.code}`);
-           }
+          // Try Loading
+          try {
+            await player.load(finalUrl);
+            document.getElementById('loadingMessage').style.display = 'none';
+            
+            // Show Info
+            document.getElementById('channelInfo').classList.remove('hidden');
+            document.getElementById('channelName').innerText = "Live Stream"; 
+            hideChannelInfo();
+            
+          } catch (error) {
+            console.error('Load Error:', error);
+            showError(`Load Failed (${error.code})`);
+          }
         }
 
-        // Run
-        const channelData = await fetchChannelData(targetUrl);
-        if(channelData) {
-          initPlayer(channelData);
+        // --- STARTUP ---
+        const playUrl = getPlayUrlFromParams();
+        if (playUrl) {
+           // Direct play mode (Fastest)
+           initPlayer(playUrl);
         } else {
-          showError("Channel data not found in playlist.");
+           showError("No Channel Selected. <br> <a href='index.html' style='color:#3b82f6'>Go Back</a>");
         }
+
       });
 
-      function showError(msg) {
-        document.getElementById('loadingMessage').style.display = 'none';
-        document.getElementById('errorMessage').style.display = 'block';
-        document.getElementById('errorText').innerText = msg;
-      }
+      // Telegram Alert (From your friend's code)
+      // window.onload = () => {
+      //    if(confirm("Join Our Telegram Channel @Axtream_Bingewav?")) {
+      //        window.location.href = "https://t.me/axtream_bingewav";
+      //    }
+      // };
     </script>
   </body>
 </html>
