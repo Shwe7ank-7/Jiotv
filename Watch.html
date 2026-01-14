@@ -1,170 +1,310 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JioTV Player</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous" />
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: -apple-system, sans-serif; }
-      .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
-      video { width: 100%; height: 100%; background: #000; object-fit: contain; }
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JioTV Player</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: #000;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .shaka-video-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      object-fit: contain;
+    }
+    .shaka-spinner-container,
+    .shaka-spinner,
+    .shaka-spinner-svg {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+    }
+    /* Simple Loading/Error UI */
+    #status {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: white; font-size: 1.2rem; z-index: 10; text-align: center;
+    }
+    .back-btn {
+      position: absolute; top: 20px; left: 20px; z-index: 20;
+      background: rgba(0,0,0,0.5); color: white; padding: 8px 16px;
+      border-radius: 4px; text-decoration: none; border: 1px solid #444;
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-btn">Back</a>
+  <div id="status">Loading Channel...</div>
+
+  <div class="shaka-video-container" data-shaka-player>
+    <video autoplay playsinline preload="metadata" poster="https://webiptv.site/weiptv.webp"></video>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const status = document.getElementById('status');
       
-      /* Hide default Shaka Spinner */
-      .shaka-spinner-container { display: none !important; }
+      // 1. Get Channel ID from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetId = urlParams.get('id');
 
-      /* UI Overlay */
-      .channel-info { position: absolute; top: 0; left: 0; right: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); padding: 20px; display: flex; align-items: center; z-index: 10; transition: opacity 0.5s; }
-      .channel-info.hidden { opacity: 0; pointer-events: none; }
-      .channel-logo { width: 50px; height: 50px; margin-right: 15px; border-radius: 50%; background: #fff; padding: 2px; }
-      .channel-name { font-size: 1.4rem; font-weight: 600; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-      
-      /* Back Button */
-      .back-btn { position: absolute; top: 25px; right: 25px; background: rgba(255,255,255,0.15); color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; font-size: 14px; backdrop-filter: blur(5px); z-index: 20; border: 1px solid rgba(255,255,255,0.1); }
+      if (!targetId) {
+        status.innerText = "Error: No Channel ID provided.";
+        return;
+      }
 
-      /* Messages */
-      .center-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; z-index: 5; }
-      .error-box { background: rgba(20,20,20,0.95); padding: 25px; border-radius: 12px; border: 1px solid #333; max-width: 85%; display: none; }
-      .retry-btn { margin-top: 15px; padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    </style>
-  </head>
-  <body>
-    <a href="index.html" class="back-btn">✕ Close</a>
+      shaka.polyfill.installAll();
 
-    <div class="channel-info" id="channelInfo">
-      <img class="channel-logo" id="channelLogo" src="" onerror="this.style.display='none'" />
-      <div class="channel-name" id="channelName">Loading...</div>
-    </div>
-    
-    <div class="shaka-video-container" data-shaka-player>
-      <video autoplay playsinline id="video"></video>
-    </div>
-    
-    <div class="center-msg" id="loader">Initializing Player...</div>
-    
-    <div class="center-msg error-box" id="errorBox">
-      <h3 style="margin-bottom:10px; color:#ef4444;">Playback Failed</h3>
-      <p id="errorText" style="color:#ccc; font-size:14px;"></p>
-      <button class="retry-btn" onclick="location.reload()">Try Again</button>
-    </div>
+      if (!shaka.Player.isBrowserSupported()) {
+        console.error('Browser not supported');
+        status.innerText = "Browser not supported";
+        return;
+      }
 
-    <script>
-      // CONFIG
-      const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
-      const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
+      const video = document.querySelector('video');
+      const player = new shaka.Player();
+      await player.attach(video);
 
-      document.addEventListener('DOMContentLoaded', async () => {
-        
-        function getChannelId() {
-          const p = new URLSearchParams(window.location.search);
-          return p.get('id');
-        }
+      const container = document.querySelector('.shaka-video-container');
+      const ui = new shaka.ui.Overlay(player, container, video);
 
-        async function fetchChannel(targetId) {
-          try {
-            document.getElementById('loader').innerText = "Fetching Channel List...";
-            const res = await fetch(M3U_URL);
-            const text = await res.text();
-            
-            const lines = text.split('\n');
-            let current = {};
-            
-            for (let line of lines) {
-              line = line.trim();
-              if (line.startsWith('#EXTINF:')) {
-                const idMatch = line.match(/tvg-id="(\d+)"/);
-                const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                const nameMatch = line.split(',')[1];
-                
-                if (idMatch) {
-                   current = { 
-                     id: idMatch[1], 
-                     logo: logoMatch ? logoMatch[1] : '', 
-                     name: nameMatch ? nameMatch.trim() : 'Live TV' 
-                   };
-                }
-              } else if (line.startsWith('http')) {
-                if (current.id === targetId) {
-                  // --- THE MAGIC FIX ---
-                  // We automatically add the worker to the URL.
-                  // This makes it work on Netlify and Fixes CORS.
-                  current.streamUrl = WORKER_URL + line;
-                  return current;
-                }
-                current = {};
-              }
-            }
-          } catch (e) { throw new Error("Playlist Load Failed. Check Internet."); }
-          return null;
-        }
-
-        async function initPlayer(channel) {
-          shaka.polyfill.installAll();
-          if (!shaka.Player.isBrowserSupported()) {
-             throw new Error("Browser Not Supported");
-          }
-
-          const video = document.getElementById('video');
-          const player = new shaka.Player(video);
-          const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
-
-          ui.configure({
-            controlPanelElements: ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'fullscreen'],
-            seekBarColors: { base: 'rgba(255,255,255,0.3)', buffered: 'rgba(255,255,255,0.5)', played: '#3b82f6' }
-          });
-
-          // Network Filters
-          player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
-          });
-
-          player.configure({
-            streaming: { 
-              bufferingGoal: 15,
-              rebufferingGoal: 2,
-              retryParameters: { maxAttempts: 5, baseDelay: 1000 } 
-            }
-          });
-
-          player.addEventListener('error', (e) => {
-             console.error(e);
-             if (e.detail.code === 7002 || e.detail.code === 1001 || e.detail.code === 1002) {
-                showError("Stream Offline or Network Blocked.<br>Try a different channel.");
-             }
-          });
-
-          document.getElementById('loader').innerText = "Connecting to Satellite...";
-          
-          await player.load(channel.streamUrl);
-          
-          document.getElementById('loader').style.display = 'none';
-          document.getElementById('channelLogo').src = channel.logo;
-          document.getElementById('channelName').innerText = channel.name;
-          
-          setTimeout(() => document.getElementById('channelInfo').classList.add('hidden'), 4000);
-        }
-
-        try {
-          const id = getChannelId();
-          if(!id) throw new Error("No Channel ID Found");
-          
-          const channel = await fetchChannel(id);
-          if(!channel) throw new Error("Channel Not Found");
-          
-          await initPlayer(channel);
-          
-        } catch (e) {
-          showError(e.message);
-        }
-
-        function showError(msg) {
-          document.getElementById('loader').style.display = 'none';
-          document.getElementById('errorBox').style.display = 'block';
-          document.getElementById('errorText').innerHTML = msg;
+      ui.configure({
+        controlPanelElements: [
+          'play_pause', 'time_and_duration', 'mute', 'volume',
+          'spacer', 'language', 'captions', 'picture_in_picture',
+          'quality', 'fullscreen'
+        ],
+        volumeBarColors: {
+          base: 'rgba(63, 187, 1, 1)',
+          level: 'rgb(255, 69, 0)'
+        },
+        seekBarColors: {
+          base: 'rgb(41, 41, 163)',
+          buffered: 'rgb(35, 99, 3)',
+          played: 'rgba(63, 187, 1, 1)'
         }
       });
-    </script>
-  </body>
+
+      // --- DYNAMIC VARIABLES ---
+      let streamUrl = "";
+      let cookieHeader = "";
+      let drmConfig = {}; 
+
+      // --- 2. PARSE M3U TO FIND CHANNEL DATA ---
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u');
+        const m3uText = await response.text();
+        const lines = m3uText.split('\n');
+
+        let found = false;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          
+          // Look for the specific Channel ID
+          if (line.includes(`tvg-id="${targetId}"`)) {
+            found = true;
+            
+            // Now look forward to find Props and URL
+            // We scan the next few lines until we find the http URL
+            for (let j = i + 1; j < lines.length; j++) {
+              const nextLine = lines[j].trim();
+              
+              // Extract Cookie
+              if (nextLine.startsWith('#EXTHTTP:')) {
+                const cookieMatch = nextLine.match(/"cookie":"([^"]+)"/);
+                if (cookieMatch) {
+                  cookieHeader = cookieMatch[1];
+                }
+              }
+              // Extract DRM Keys
+              else if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
+                const keyMatch = nextLine.match(/license_key=([^:]+):([^$]+)/);
+                if (keyMatch) {
+                  drmConfig = {
+                    clearKeys: {
+                      [keyMatch[1]]: keyMatch[2]
+                    }
+                  };
+                }
+              }
+              // Extract URL (Stop searching when found)
+              else if (nextLine.startsWith('http')) {
+                streamUrl = nextLine;
+                break; // We found the data for this channel
+              }
+              // If we hit another #EXTINF, we went too far
+              else if (nextLine.startsWith('#EXTINF:')) {
+                break;
+              }
+            }
+            break; // Stop main loop
+          }
+        }
+
+        if (!found || !streamUrl) {
+           status.innerText = "Channel Not Found in Playlist";
+           return;
+        }
+
+      } catch (error) {
+        console.error('Failed to fetch M3U:', error);
+        status.innerText = "Failed to load playlist.";
+        return;
+      }
+
+      // Hide status if found
+      status.style.display = 'none';
+
+      // --- 3. CONFIGURE PLAYER ---
+      player.configure({
+        drm: drmConfig, // Use the dynamic keys found
+        streaming: {
+          lowLatencyMode: true,
+          bufferingGoal: 15,
+          rebufferingGoal: 2,
+          bufferBehind: 15,
+          retryParameters: {
+            timeout: 10000,
+            maxAttempts: 5,
+            baseDelay: 300,
+            backoffFactor: 1.2
+          },
+          segmentRequestTimeout: 8000,
+          segmentPrefetchLimit: 2,
+          useNativeHlsOnSafari: true
+        },
+        manifest: {
+          retryParameters: {
+            timeout: 8000,
+            maxAttempts: 3
+          }
+        }
+      });
+
+      player.getNetworkingEngine().registerRequestFilter((type, request) => {
+        request.headers['Referer'] = 'https://www.jiotv.com/';
+        request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
+        
+        // Only add cookie if we found one
+        if (cookieHeader) {
+            request.headers['Cookie'] = cookieHeader;
+
+            if (
+              (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+                type === shaka.net.NetworkingEngine.RequestType.SEGMENT) &&
+              request.uris[0] && !request.uris[0].includes('hdnea=')
+            ) {
+              const separator = request.uris[0].includes('?') ? '&' : '?';
+              request.uris[0] += separator + cookieHeader;
+            }
+        }
+      });
+
+      // --- 4. WORKER FALLBACK LOGIC ---
+      // If the URL is http (not https) and we are on Netlify (https),
+      // we MUST use the worker or it won't play.
+      if (streamUrl.startsWith('http:')) {
+          console.log("HTTP stream detected, applying worker proxy...");
+          const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
+          streamUrl = WORKER_URL + streamUrl;
+      }
+
+      const enableAutoplay = () => {
+        video.setAttribute('autoplay', '');
+        video.setAttribute('playsinline', '');
+        video.autoplay = true;
+      };
+
+      const attemptAutoplay = async () => {
+        try {
+          video.muted = false;
+          await video.play();
+          console.log('Unmuted autoplay successful');
+          return true;
+        } catch (error) {
+          console.log('Unmuted autoplay failed:', error.message);
+          try {
+            video.muted = true;
+            await video.play();
+            console.log('Muted autoplay successful');
+            return true;
+          } catch (mutedError) {
+            console.log('Muted autoplay failed:', mutedError.message);
+            return false;
+          }
+        }
+      };
+
+      player.addEventListener('error', (event) => {
+        console.error('Shaka Player Error:', event.detail);
+      });
+
+      video.addEventListener('play', () => {
+        if (window.self === window.top && !document.fullscreenElement && window.innerWidth <= 768) {
+          container.requestFullscreen().catch(() => {
+            console.log('Fullscreen request failed');
+          });
+        }
+      }, { once: true });
+
+      video.addEventListener('loadedmetadata', () => {
+        video.volume = 0.8;
+      });
+
+      let hasUserInteracted = false;
+      const enableSoundOnInteraction = () => {
+        if (!hasUserInteracted && video.muted) {
+          video.muted = false;
+          hasUserInteracted = true;
+          console.log('Sound enabled after user interaction');
+        }
+      };
+      ['click', 'touchstart', 'keydown'].forEach(event => {
+        document.addEventListener(event, enableSoundOnInteraction, { once: true });
+      });
+
+      try {
+        enableAutoplay();
+        // Load the dynamically found URL
+        await player.load(streamUrl);
+        
+        if (video.readyState >= 3) {
+          await attemptAutoplay();
+        } else {
+          video.addEventListener('canplay', attemptAutoplay, { once: true });
+          setTimeout(async () => {
+            if (video.paused) {
+              await attemptAutoplay();
+            }
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Load error:', error);
+        status.innerText = "Playback Error";
+        status.style.display = 'block';
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && video.paused) {
+          attemptAutoplay();
+        }
+      });
+    });
+  </script>
+</body>
 </html>
