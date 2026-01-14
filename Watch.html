@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JioTV Player</title>
+  <title>JioTV HD Player</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
   <style>
@@ -27,28 +27,25 @@
       background: #000;
       object-fit: contain;
     }
-    .shaka-spinner-container,
-    .shaka-spinner,
-    .shaka-spinner-svg {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-    }
-    /* Simple Loading/Error UI */
+    .shaka-spinner-container { display: none !important; }
+    
+    /* Overlay UI */
     #status {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       color: white; font-size: 1.2rem; z-index: 10; text-align: center;
+      background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px;
     }
     .back-btn {
       position: absolute; top: 20px; left: 20px; z-index: 20;
-      background: rgba(0,0,0,0.5); color: white; padding: 8px 16px;
-      border-radius: 4px; text-decoration: none; border: 1px solid #444;
+      background: rgba(255, 255, 255, 0.1); color: white; padding: 10px 20px;
+      border-radius: 30px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(5px); font-weight: 500;
     }
   </style>
 </head>
 <body>
-  <a href="index.html" class="back-btn">Back</a>
-  <div id="status">Loading Channel...</div>
+  <a href="index.html" class="back-btn">← Back</a>
+  <div id="status">Loading HD Stream...</div>
 
   <div class="shaka-video-container" data-shaka-player>
     <video autoplay playsinline preload="metadata" poster="https://webiptv.site/weiptv.webp"></video>
@@ -57,8 +54,6 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('status');
-      
-      // 1. Get Channel ID from URL
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
 
@@ -70,7 +65,6 @@
       shaka.polyfill.installAll();
 
       if (!shaka.Player.isBrowserSupported()) {
-        console.error('Browser not supported');
         status.innerText = "Browser not supported";
         return;
       }
@@ -82,228 +76,122 @@
       const container = document.querySelector('.shaka-video-container');
       const ui = new shaka.ui.Overlay(player, container, video);
 
+      // UI Controls with QUALITY selector
       ui.configure({
         controlPanelElements: [
           'play_pause', 'time_and_duration', 'mute', 'volume',
-          'spacer', 'language', 'captions', 'picture_in_picture',
-          'quality', 'fullscreen'
+          'spacer', 'quality', 'fullscreen'
         ],
-        volumeBarColors: {
-          base: 'rgba(63, 187, 1, 1)',
-          level: 'rgb(255, 69, 0)'
-        },
         seekBarColors: {
-          base: 'rgb(41, 41, 163)',
-          buffered: 'rgb(35, 99, 3)',
-          played: 'rgba(63, 187, 1, 1)'
+          base: 'rgba(255, 255, 255, 0.3)',
+          buffered: 'rgba(255, 255, 255, 0.54)',
+          played: 'rgb(255, 69, 0)'
         }
       });
 
-      // --- DYNAMIC VARIABLES ---
+      // --- FIND STREAM DATA ---
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {}; 
 
-      // --- 2. PARSE M3U TO FIND CHANNEL DATA ---
       try {
         const response = await fetch('https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u');
         const m3uText = await response.text();
         const lines = m3uText.split('\n');
-
         let found = false;
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
-          
-          // Look for the specific Channel ID
           if (line.includes(`tvg-id="${targetId}"`)) {
             found = true;
-            
-            // Now look forward to find Props and URL
-            // We scan the next few lines until we find the http URL
             for (let j = i + 1; j < lines.length; j++) {
               const nextLine = lines[j].trim();
-              
-              // Extract Cookie
               if (nextLine.startsWith('#EXTHTTP:')) {
                 const cookieMatch = nextLine.match(/"cookie":"([^"]+)"/);
-                if (cookieMatch) {
-                  cookieHeader = cookieMatch[1];
-                }
+                if (cookieMatch) cookieHeader = cookieMatch[1];
               }
-              // Extract DRM Keys
               else if (nextLine.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
                 const keyMatch = nextLine.match(/license_key=([^:]+):([^$]+)/);
-                if (keyMatch) {
-                  drmConfig = {
-                    clearKeys: {
-                      [keyMatch[1]]: keyMatch[2]
-                    }
-                  };
-                }
+                if (keyMatch) drmConfig = { clearKeys: { [keyMatch[1]]: keyMatch[2] } };
               }
-              // Extract URL (Stop searching when found)
               else if (nextLine.startsWith('http')) {
                 streamUrl = nextLine;
-                break; // We found the data for this channel
-              }
-              // If we hit another #EXTINF, we went too far
-              else if (nextLine.startsWith('#EXTINF:')) {
                 break;
               }
+              else if (nextLine.startsWith('#EXTINF:')) break;
             }
-            break; // Stop main loop
+            break;
           }
         }
 
         if (!found || !streamUrl) {
-           status.innerText = "Channel Not Found in Playlist";
+           status.innerText = "Channel Not Found";
            return;
         }
-
       } catch (error) {
-        console.error('Failed to fetch M3U:', error);
         status.innerText = "Failed to load playlist.";
         return;
       }
 
-      // Hide status if found
       status.style.display = 'none';
 
-      // --- 3. CONFIGURE PLAYER ---
+      // --- HD CONFIGURATION ---
       player.configure({
-        drm: drmConfig, // Use the dynamic keys found
+        drm: drmConfig,
+        // FORCE HD: Set default bandwidth high (10 Mbps)
+        abr: {
+            enabled: true,
+            defaultBandwidthEstimate: 10000000, 
+            switchInterval: 1
+        },
         streaming: {
           lowLatencyMode: true,
-          bufferingGoal: 15,
-          rebufferingGoal: 2,
-          bufferBehind: 15,
-          retryParameters: {
-            timeout: 10000,
-            maxAttempts: 5,
-            baseDelay: 300,
-            backoffFactor: 1.2
-          },
-          segmentRequestTimeout: 8000,
-          segmentPrefetchLimit: 2,
+          bufferingGoal: 30, // Increase buffer for stable HD
+          rebufferingGoal: 5,
+          retryParameters: { maxAttempts: 5, baseDelay: 300, backoffFactor: 1.2 },
           useNativeHlsOnSafari: true
-        },
-        manifest: {
-          retryParameters: {
-            timeout: 8000,
-            maxAttempts: 3
-          }
         }
       });
 
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         request.headers['Referer'] = 'https://www.jiotv.com/';
         request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
-        
-        // Only add cookie if we found one
         if (cookieHeader) {
             request.headers['Cookie'] = cookieHeader;
-
-            if (
-              (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
-                type === shaka.net.NetworkingEngine.RequestType.SEGMENT) &&
-              request.uris[0] && !request.uris[0].includes('hdnea=')
-            ) {
+            if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && request.uris[0] && !request.uris[0].includes('hdnea=')) {
               const separator = request.uris[0].includes('?') ? '&' : '?';
               request.uris[0] += separator + cookieHeader;
             }
         }
       });
 
-      // --- 4. WORKER FALLBACK LOGIC ---
-      // If the URL is http (not https) and we are on Netlify (https),
-      // we MUST use the worker or it won't play.
+      // --- WORKER PROXY ---
       if (streamUrl.startsWith('http:')) {
-          console.log("HTTP stream detected, applying worker proxy...");
           const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
           streamUrl = WORKER_URL + streamUrl;
       }
 
-      const enableAutoplay = () => {
-        video.setAttribute('autoplay', '');
-        video.setAttribute('playsinline', '');
-        video.autoplay = true;
-      };
-
+      // --- AUTOPLAY LOGIC ---
       const attemptAutoplay = async () => {
         try {
           video.muted = false;
           await video.play();
-          console.log('Unmuted autoplay successful');
-          return true;
         } catch (error) {
-          console.log('Unmuted autoplay failed:', error.message);
           try {
             video.muted = true;
             await video.play();
-            console.log('Muted autoplay successful');
-            return true;
-          } catch (mutedError) {
-            console.log('Muted autoplay failed:', mutedError.message);
-            return false;
-          }
+          } catch (e) { }
         }
       };
-
-      player.addEventListener('error', (event) => {
-        console.error('Shaka Player Error:', event.detail);
-      });
-
-      video.addEventListener('play', () => {
-        if (window.self === window.top && !document.fullscreenElement && window.innerWidth <= 768) {
-          container.requestFullscreen().catch(() => {
-            console.log('Fullscreen request failed');
-          });
-        }
-      }, { once: true });
-
-      video.addEventListener('loadedmetadata', () => {
-        video.volume = 0.8;
-      });
-
-      let hasUserInteracted = false;
-      const enableSoundOnInteraction = () => {
-        if (!hasUserInteracted && video.muted) {
-          video.muted = false;
-          hasUserInteracted = true;
-          console.log('Sound enabled after user interaction');
-        }
-      };
-      ['click', 'touchstart', 'keydown'].forEach(event => {
-        document.addEventListener(event, enableSoundOnInteraction, { once: true });
-      });
 
       try {
-        enableAutoplay();
-        // Load the dynamically found URL
         await player.load(streamUrl);
-        
-        if (video.readyState >= 3) {
-          await attemptAutoplay();
-        } else {
-          video.addEventListener('canplay', attemptAutoplay, { once: true });
-          setTimeout(async () => {
-            if (video.paused) {
-              await attemptAutoplay();
-            }
-          }, 2000);
-        }
+        await attemptAutoplay();
       } catch (error) {
         console.error('Load error:', error);
         status.innerText = "Playback Error";
         status.style.display = 'block';
       }
-
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && video.paused) {
-          attemptAutoplay();
-        }
-      });
     });
   </script>
 </body>
