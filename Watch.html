@@ -15,31 +15,39 @@
     .shaka-video-container { width: 100%; height: 100%; }
     video { width: 100%; height: 100%; background: #000; object-fit: contain; }
     
-    /* 2. CUSTOM UI STYLING (MATCHING FRIEND'S CODE) */
+    /* 2. CUSTOM UI STYLING (MATCHING YOUR SCREENSHOT) */
     
-    /* Settings Menu (White Background) */
+    /* Settings Menu (White Background, Black Text) */
     .shaka-overflow-menu, .shaka-settings-menu {
       background-color: white !important;
       color: black !important;
       border-radius: 8px !important;
-      padding: 6px !important;
+      padding: 8px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
     
     .shaka-overflow-menu button, .shaka-settings-menu button {
       color: black !important;
       font-weight: 500 !important;
+      font-size: 14px !important;
     }
     
     .shaka-overflow-menu button:hover, .shaka-settings-menu button:hover {
-      background-color: #f0f0f0 !important;
+      background-color: #eee !important;
+    }
+
+    /* Current Selection Checkmark */
+    .shaka-current-selection-span {
+        color: #000 !important;
+        font-weight: bold;
     }
     
-    /* Control Bar Icons */
+    /* Control Bar Icons (White) */
     .shaka-controls-button-panel .material-icons-round {
       color: white !important;
     }
 
-    /* Seek Bar */
+    /* Seek Bar (Red & White) */
     .shaka-seek-bar-container { height: 6px !important; }
     
     /* Hide Default Spinner */
@@ -67,7 +75,7 @@
   <div id="status">Finding Channel Stream...</div>
 
   <div class="shaka-video-container" data-shaka-player>
-    <video autoplay playsinline preload="metadata" poster="https://ik.imagekit.io/24sfhkkep/shwe7ank-poster-16x9.png"></video>
+    <video autoplay playsinline preload="metadata" poster="https://webiptv.site/weiptv.webp"></video>
   </div>
 
   <script>
@@ -108,7 +116,7 @@
       });
 
       // 4. SMART M3U PARSER
-      // This part finds the SPECIFIC cookie and DRM for the ID you clicked
+      // This scans your list for the SPECIFIC Cookie & DRM for the channel you clicked
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {};
@@ -131,12 +139,12 @@
             for (let j = i + 1; j < lines.length; j++) {
               const line = lines[j].trim();
               
-              // Extract Cookie
+              // Extract Cookie (Handles {"cookie": "..."} format)
               if (line.startsWith('#EXTHTTP:')) {
                 const cookie = line.match(/"cookie":"([^"]+)"/);
                 if (cookie) cookieHeader = cookie[1];
               } 
-              // Extract DRM Keys (Essential for Star Sports)
+              // Extract DRM Keys (Star Sports/Sony need this)
               else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
                 const key = line.match(/license_key=([^:]+):([^$]+)/);
                 if (key) drmConfig = { clearKeys: { [key[1]]: key[2] } };
@@ -165,12 +173,12 @@
 
       status.style.display = 'none';
 
-      // 5. PLAYER CONFIGURATION (FORCE HD & HEADERS)
+      // 5. PLAYER CONFIGURATION (FORCE HD)
       player.configure({
         drm: drmConfig,
         abr: {
             enabled: true,
-            // 20 Mbps Estimate = Forces Player to grab the highest quality (1080p/720p) instantly
+            // 20 Mbps Estimate = Forces Player to grab 1080p/720p instantly
             defaultBandwidthEstimate: 20000000, 
             switchInterval: 0
         },
@@ -200,7 +208,7 @@
         }
       });
 
-      // 7. WORKER PROXY (YOUR ASSET)
+      // 7. WORKER PROXY (CRITICAL FIX)
       // Since M3U has http links, we wrap them in your worker to play on HTTPS sites
       if (streamUrl.startsWith('http:')) {
          const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
