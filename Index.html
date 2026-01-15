@@ -58,12 +58,12 @@
 <body>
 
 <header>
-  <div class="logo">SHWE7ANK</div>
+  <div class="logo">SHWE7ANK+</div>
   <div onclick="location.reload()" style="cursor:pointer">↻</div>
 </header>
 
 <div class="search-container">
-  <input type="text" id="search" placeholder="Search 500+ Channels..." oninput="filterChannels()">
+  <input type="text" id="search" placeholder="Search Channels..." oninput="filterChannels()">
 </div>
 
 <div id="loader">Loading Channels...</div>
@@ -122,7 +122,6 @@ function renderChannels(channels) {
   const grid = document.getElementById('grid');
   grid.innerHTML = "";
   
-  // Render ALL channels (using a fragment for performance)
   const fragment = document.createDocumentFragment();
   
   channels.forEach(c => {
