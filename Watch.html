@@ -3,181 +3,280 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JioTV HD Player</title>
+  <title>@Shwe7ank</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
   
   <style>
-    body { background: #000; height: 100vh; width: 100vw; margin: 0; overflow: hidden; font-family: sans-serif; }
+    /* 1. RESET & LAYOUT */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: 'Roboto', sans-serif; }
     .shaka-video-container { width: 100%; height: 100%; }
-    video { width: 100%; height: 100%; object-fit: contain; }
+    video { width: 100%; height: 100%; background: #000; object-fit: contain; }
     
-    /* White UI Theme */
+    /* 2. PLAYER UI STYLING */
     .shaka-overflow-menu, .shaka-settings-menu {
       background-color: white !important;
       color: black !important;
-      border-radius: 8px;
+      border-radius: 8px !important;
+      padding: 8px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
     .shaka-overflow-menu button, .shaka-settings-menu button {
       color: black !important;
+      font-weight: 500 !important;
+      font-size: 14px !important;
     }
     .shaka-overflow-menu button:hover, .shaka-settings-menu button:hover {
       background-color: #eee !important;
     }
+    .shaka-current-selection-span {
+        color: #000 !important;
+        font-weight: bold;
+    }
     .shaka-controls-button-panel .material-icons-round {
       color: white !important;
     }
+    .shaka-seek-bar-container { height: 6px !important; }
+    .shaka-spinner-container { display: none !important; }
     
-    /* Overlays */
+    /* 3. OVERLAYS (Back Button & Status) */
     .back-btn {
       position: absolute; top: 20px; left: 20px; z-index: 99;
       background: rgba(0,0,0,0.5); color: white; padding: 8px 16px;
       border-radius: 20px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(4px); font-size: 14px;
     }
     #status {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       color: white; font-size: 16px; background: rgba(0,0,0,0.8);
       padding: 15px 25px; border-radius: 30px; z-index: 50;
+      backdrop-filter: blur(5px);
+    }
+
+    /* 4. TELEGRAM POPUP STYLES */
+    #popup {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .popup-content {
+        background: #FFD700;
+        color: black;
+        padding: 25px;
+        text-align: center;
+        border-radius: 12px;
+        width: 360px;
+        animation: moreRealisticBounce 0.6s ease-out;
+        transform: perspective(1000px) rotateX(10deg) translateZ(20px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        font-family: 'Pacifico', cursive;
+    }
+
+    .popup-content h2 { margin: 0 0 12px; font-size: 24px; }
+    .popup-content p { margin: 0 0 15px; font-size: 16px; font-family: sans-serif; }
+
+    .popup-content button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: 0.3s ease-in-out;
+        font-weight: bold;
+        font-family: sans-serif;
+    }
+
+    .popup-content .join-btn { background: black; color: #FFD700; }
+    .popup-content .join-btn:hover { background: #222; transform: scale(1.05); }
+
+    .popup-content .close-btn { background: #555; color: white; }
+    .popup-content .close-btn:hover { background: #333; transform: scale(1.05); }
+
+    /* Bounce Animation */
+    @keyframes moreRealisticBounce {
+        0% { opacity: 0; transform: translateY(-60px) scale(0.9); }
+        40% { opacity: 1; transform: translateY(15px) scale(1.02); }
+        70% { transform: translateY(-8px) scale(0.98); }
+        100% { transform: translateY(0) scale(1); }
     }
   </style>
 </head>
 <body>
 
+  <div id="popup">
+      <div class="popup-content">
+          <h2>Support Us!</h2>
+          <p>Join our Telegram channel for more updates.</p>
+          <button class="join-btn" onclick="window.open('https://t.me/+3sgGQcDP6ExhYTU1', '_blank')">
+              Join Now
+          </button>
+          <button class="close-btn" onclick="closePopup()">
+              Already Joined
+          </button>
+      </div>
+  </div>
+
   <a href="index.html" class="back-btn">← Back</a>
-  <div id="status">Loading Stream...</div>
+  <div id="status">Finding Channel Stream...</div>
 
   <div class="shaka-video-container" data-shaka-player>
-    <video autoplay playsinline></video>
+    <video autoplay playsinline preload="metadata" 
+           poster="https://ik.imagekit.io/24sfhkkep/shwe7ank-poster-16x9.png">
+    </video>
   </div>
 
   <script>
-    // --- 1. MANUAL KEY DATABASE (The Fix) ---
-    // If a channel fails or is low quality, add its specific key here.
-    // Format: "Channel_Name_In_M3U": { "key_id": "key" }
-    const STATIC_KEYS = {
-      "Sports18_1_HD_BTS": { 
-        "bd1ea6a1c1fb5dcdb709434e0826bbc0": "f57f22cba32739ce7beb1fab3f3d060b" 
-      },
-      // Add Star Sports keys here if you find them:
-      // "Star_Sports_2_Hindi_HD": { "key_id": "key" }
-    };
-
-    const WORKER_URL = "https://pkll.xojiv79335.workers.dev/"; 
-    const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
+    // POPUP FUNCTION (Must be outside DOMContentLoaded to work with onclick)
+    function closePopup() {
+        document.getElementById('popup').style.display = 'none';
+        // Auto-play video after closing popup if needed
+        const video = document.querySelector('video');
+        if(video && video.paused) { video.play().catch(()=>{}); }
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('status');
+      
+      // 1. Get Channel ID
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
+      
+      if (!targetId) {
+        status.innerText = "Error: No Channel ID";
+        return;
+      }
 
-      if (!targetId) { status.innerText = "Error: No ID"; return; }
-
+      // 2. Initialize Shaka
       shaka.polyfill.installAll();
-      if (!shaka.Player.isBrowserSupported()) { status.innerText = "Browser Not Supported"; return; }
+      if (!shaka.Player.isBrowserSupported()) {
+        status.innerText = "Browser Not Supported";
+        return;
+      }
 
       const video = document.querySelector('video');
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
+      // 3. UI Configuration
       ui.configure({
-        controlPanelElements: ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'quality', 'fullscreen', 'overflow_menu'],
-        seekBarColors: { base: 'rgba(255,255,255,0.3)', buffered: 'rgba(255,255,255,0.54)', played: 'red' }
+        controlPanelElements: [
+          'play_pause', 'time_and_duration', 'mute', 'volume',
+          'spacer', 'quality', 'fullscreen', 'overflow_menu'
+        ],
+        seekBarColors: {
+          base: 'rgba(255, 255, 255, 0.3)',
+          buffered: 'rgba(255, 255, 255, 0.54)',
+          played: 'rgb(255, 69, 0)'
+        }
       });
 
-      // --- 2. SMART FINDER ---
+      // 4. SMART M3U PARSER
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {};
-      let channelNameInternal = "";
 
       try {
-        status.innerText = "Scanning Playlist...";
-        const res = await fetch(M3U_URL);
+        status.innerText = "Fetching Channel Keys...";
+        const res = await fetch('https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u');
         const text = await res.text();
         const lines = text.split('\n');
         
+        let found = false;
+
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].includes(`tvg-id="${targetId}"`)) {
-            
-            // Try to find internal name for Static Key lookup
-            const logoLine = lines[i]; 
-            // Often the internal name is part of the logo url or name
-            
+            found = true;
             for (let j = i + 1; j < lines.length; j++) {
               const line = lines[j].trim();
               
               if (line.startsWith('#EXTHTTP:')) {
-                const match = line.match(/"cookie":"([^"]+)"/);
-                if (match) cookieHeader = match[1];
+                const cookie = line.match(/"cookie":"([^"]+)"/);
+                if (cookie) cookieHeader = cookie[1];
               } 
               else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
-                const parts = line.split('license_key=')[1].split(':');
-                if (parts.length >= 2) drmConfig = { clearKeys: { [parts[0]]: parts[1] } };
+                const key = line.match(/license_key=([^:]+):([^$]+)/);
+                if (key) drmConfig = { clearKeys: { [key[1]]: key[2] } };
               }
               else if (line.startsWith('http')) {
                 streamUrl = line;
-                // Hack: extract internal name from URL for static key lookup
-                // e.g., .../Sports18_1_HD_BTS/...
-                const urlParts = streamUrl.split('/');
-                for(let part of urlParts) {
-                    if(STATIC_KEYS[part]) {
-                        console.log("Found Static Key override for:", part);
-                        drmConfig = { clearKeys: STATIC_KEYS[part] };
-                    }
-                }
                 break; 
               }
-              else if (line.startsWith('#EXTINF:')) break;
+              else if (line.startsWith('#EXTINF:')) break; 
             }
             break;
           }
         }
 
-        if (!streamUrl) { status.innerText = "Channel Not Found"; return; }
+        if (!found || !streamUrl) {
+          status.innerText = "Channel Not Found in Playlist";
+          return;
+        }
 
-      } catch (e) { status.innerText = "Playlist Error"; return; }
+      } catch (e) {
+        status.innerText = "Playlist Error. Check Internet.";
+        return;
+      }
 
       status.style.display = 'none';
 
-      // --- 3. FORCE HD (1080p) ---
+      // 5. PLAYER CONFIGURATION (FORCE HD)
       player.configure({
         drm: drmConfig,
         abr: {
             enabled: true,
-            defaultBandwidthEstimate: 25000000, // 25 Mbps = Forces Max Quality
+            defaultBandwidthEstimate: 20000000, 
             switchInterval: 0
         },
         streaming: {
-          bufferingGoal: 60,
+          lowLatencyMode: true,
+          bufferingGoal: 45,
           rebufferingGoal: 10,
-          retryParameters: { maxAttempts: 5, baseDelay: 1000, backoffFactor: 1.2 }
+          retryParameters: { maxAttempts: 5, baseDelay: 500, backoffFactor: 1.2 },
+          useNativeHlsOnSafari: true
         }
       });
 
+      // 6. REQUEST FILTER
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
         request.headers['Referer'] = 'https://www.jiotv.com/';
+        
         if (cookieHeader) {
           request.headers['Cookie'] = cookieHeader;
-          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && !request.uris[0].includes('hdnea=')) {
+          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || 
+               type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && 
+               request.uris[0] && !request.uris[0].includes('hdnea=')) {
              const sep = request.uris[0].includes('?') ? '&' : '?';
              request.uris[0] += sep + cookieHeader;
           }
         }
       });
 
-      // Worker Proxy
+      // 7. WORKER PROXY
       if (streamUrl.startsWith('http:')) {
+         const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
          streamUrl = WORKER_URL + streamUrl;
       }
 
-      // Play
+      // 8. LOAD
       try {
         await player.load(streamUrl);
+        // We do NOT autoplay here because the popup is showing.
+        // The user will click "Already Joined" or "Join" and then the video will start.
       } catch (e) {
         console.error(e);
-        status.innerText = "Playback Failed: " + e.code;
+        status.innerText = "Playback Error: " + e.code;
         status.style.display = 'block';
       }
     });
