@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@Shwe7ank</title>
+  <title>JioTV HD Player</title>
   
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
   
@@ -137,10 +137,21 @@
   </div>
 
   <script>
-    // POPUP FUNCTION (Must be outside DOMContentLoaded to work with onclick)
+    // --- 1. MANUAL KEY DATABASE (Updated) ---
+    // This allows you to override keys if the M3U is wrong or missing them.
+    const STATIC_KEYS = {
+      // The exact one you asked for:
+      "Sports18_1_HD_BTS": { 
+        "bd1ea6a1c1fb5dcdb709434e0826bbc0": "f57f22cba32739ce7beb1fab3f3d060b" 
+      },
+      // You can add more here if needed in the future
+      // "Star_Sports_2_Hindi_HD": { "kid": "key" }
+    };
+
+    // POPUP FUNCTION
     function closePopup() {
         document.getElementById('popup').style.display = 'none';
-        // Auto-play video after closing popup if needed
+        // Auto-play video after closing popup
         const video = document.querySelector('video');
         if(video && video.paused) { video.play().catch(()=>{}); }
     }
@@ -148,7 +159,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('status');
       
-      // 1. Get Channel ID
+      // 2. Get Channel ID
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
       
@@ -157,7 +168,7 @@
         return;
       }
 
-      // 2. Initialize Shaka
+      // 3. Initialize Shaka
       shaka.polyfill.installAll();
       if (!shaka.Player.isBrowserSupported()) {
         status.innerText = "Browser Not Supported";
@@ -168,7 +179,7 @@
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
-      // 3. UI Configuration
+      // 4. UI Configuration
       ui.configure({
         controlPanelElements: [
           'play_pause', 'time_and_duration', 'mute', 'volume',
@@ -181,7 +192,7 @@
         }
       });
 
-      // 4. SMART M3U PARSER
+      // 5. SMART M3U PARSER
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {};
@@ -210,6 +221,16 @@
               }
               else if (line.startsWith('http')) {
                 streamUrl = line;
+                
+                // --- MANUAL KEY CHECKER ---
+                // If the URL matches our manual list, OVERRIDE the keys.
+                const urlParts = streamUrl.split('/');
+                for(let part of urlParts) {
+                    if(STATIC_KEYS[part]) {
+                        console.log("Applying Manual Key for:", part);
+                        drmConfig = { clearKeys: STATIC_KEYS[part] };
+                    }
+                }
                 break; 
               }
               else if (line.startsWith('#EXTINF:')) break; 
@@ -230,7 +251,7 @@
 
       status.style.display = 'none';
 
-      // 5. PLAYER CONFIGURATION (FORCE HD)
+      // 6. PLAYER CONFIGURATION (FORCE HD)
       player.configure({
         drm: drmConfig,
         abr: {
@@ -247,7 +268,7 @@
         }
       });
 
-      // 6. REQUEST FILTER
+      // 7. REQUEST FILTER
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
         request.headers['Referer'] = 'https://www.jiotv.com/';
@@ -263,17 +284,17 @@
         }
       });
 
-      // 7. WORKER PROXY
+      // 8. WORKER PROXY
       if (streamUrl.startsWith('http:')) {
          const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
          streamUrl = WORKER_URL + streamUrl;
       }
 
-      // 8. LOAD
+      // 9. LOAD
       try {
         await player.load(streamUrl);
-        // We do NOT autoplay here because the popup is showing.
-        // The user will click "Already Joined" or "Join" and then the video will start.
+        // We pause autoplay to show the Popup first
+        // video.play(); 
       } catch (e) {
         console.error(e);
         status.innerText = "Playback Error: " + e.code;
