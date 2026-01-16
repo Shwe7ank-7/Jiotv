@@ -9,227 +9,175 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
   
   <style>
-    /* 1. RESET & LAYOUT */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: 'Roboto', sans-serif; }
+    body { background: #000; height: 100vh; width: 100vw; margin: 0; overflow: hidden; font-family: sans-serif; }
     .shaka-video-container { width: 100%; height: 100%; }
-    video { width: 100%; height: 100%; background: #000; object-fit: contain; }
+    video { width: 100%; height: 100%; object-fit: contain; }
     
-    /* 2. CUSTOM UI STYLING (MATCHING YOUR SCREENSHOT) */
-    
-    /* Settings Menu (White Background, Black Text) */
+    /* White UI Theme */
     .shaka-overflow-menu, .shaka-settings-menu {
       background-color: white !important;
       color: black !important;
-      border-radius: 8px !important;
-      padding: 8px !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border-radius: 8px;
     }
-    
     .shaka-overflow-menu button, .shaka-settings-menu button {
       color: black !important;
-      font-weight: 500 !important;
-      font-size: 14px !important;
     }
-    
     .shaka-overflow-menu button:hover, .shaka-settings-menu button:hover {
       background-color: #eee !important;
     }
-
-    /* Current Selection Checkmark */
-    .shaka-current-selection-span {
-        color: #000 !important;
-        font-weight: bold;
-    }
-    
-    /* Control Bar Icons (White) */
     .shaka-controls-button-panel .material-icons-round {
       color: white !important;
     }
-
-    /* Seek Bar (Red & White) */
-    .shaka-seek-bar-container { height: 6px !important; }
     
-    /* Hide Default Spinner */
-    .shaka-spinner-container { display: none !important; }
-    
-    /* 3. OVERLAYS */
+    /* Overlays */
     .back-btn {
       position: absolute; top: 20px; left: 20px; z-index: 99;
       background: rgba(0,0,0,0.5); color: white; padding: 8px 16px;
       border-radius: 20px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);
-      backdrop-filter: blur(4px); font-size: 14px;
     }
-    
     #status {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       color: white; font-size: 16px; background: rgba(0,0,0,0.8);
       padding: 15px 25px; border-radius: 30px; z-index: 50;
-      backdrop-filter: blur(5px);
     }
   </style>
 </head>
 <body>
 
   <a href="index.html" class="back-btn">← Back</a>
-  <div id="status">Finding Channel Stream...</div>
+  <div id="status">Loading Stream...</div>
 
   <div class="shaka-video-container" data-shaka-player>
-    <video autoplay playsinline preload="metadata" poster="https://ik.imagekit.io/24sfhkkep/shwe7ank-poster-16x9.png"></video>
+    <video autoplay playsinline></video>
   </div>
 
   <script>
+    // --- 1. MANUAL KEY DATABASE (The Fix) ---
+    // If a channel fails or is low quality, add its specific key here.
+    // Format: "Channel_Name_In_M3U": { "key_id": "key" }
+    const STATIC_KEYS = {
+      "Sports18_1_HD_BTS": { 
+        "bd1ea6a1c1fb5dcdb709434e0826bbc0": "f57f22cba32739ce7beb1fab3f3d060b" 
+      },
+      // Add Star Sports keys here if you find them:
+      // "Star_Sports_2_Hindi_HD": { "key_id": "key" }
+    };
+
+    const WORKER_URL = "https://pkll.xojiv79335.workers.dev/"; 
+    const M3U_URL = "https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u";
+
     document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('status');
-      
-      // 1. Get Channel ID from URL
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
-      
-      if (!targetId) {
-        status.innerText = "Error: No Channel ID";
-        return;
-      }
 
-      // 2. Initialize Shaka
+      if (!targetId) { status.innerText = "Error: No ID"; return; }
+
       shaka.polyfill.installAll();
-      if (!shaka.Player.isBrowserSupported()) {
-        status.innerText = "Browser Not Supported";
-        return;
-      }
+      if (!shaka.Player.isBrowserSupported()) { status.innerText = "Browser Not Supported"; return; }
 
       const video = document.querySelector('video');
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
-      // 3. UI Configuration (Resolution Selector Enabled)
       ui.configure({
-        controlPanelElements: [
-          'play_pause', 'time_and_duration', 'mute', 'volume',
-          'spacer', 'quality', 'fullscreen', 'overflow_menu'
-        ],
-        seekBarColors: {
-          base: 'rgba(255, 255, 255, 0.3)',
-          buffered: 'rgba(255, 255, 255, 0.54)',
-          played: 'rgb(255, 69, 0)'
-        }
+        controlPanelElements: ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'quality', 'fullscreen', 'overflow_menu'],
+        seekBarColors: { base: 'rgba(255,255,255,0.3)', buffered: 'rgba(255,255,255,0.54)', played: 'red' }
       });
 
-      // 4. SMART M3U PARSER
-      // This scans your list for the SPECIFIC Cookie & DRM for the channel you clicked
+      // --- 2. SMART FINDER ---
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {};
+      let channelNameInternal = "";
 
       try {
-        status.innerText = "Fetching Channel Keys...";
-        // Using your exact assets
-        const res = await fetch('https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u');
+        status.innerText = "Scanning Playlist...";
+        const res = await fetch(M3U_URL);
         const text = await res.text();
         const lines = text.split('\n');
         
-        let found = false;
-
         for (let i = 0; i < lines.length; i++) {
-          // Look for the ID passed from index.html
           if (lines[i].includes(`tvg-id="${targetId}"`)) {
-            found = true;
             
-            // Once found, look ahead for the stream details
+            // Try to find internal name for Static Key lookup
+            const logoLine = lines[i]; 
+            // Often the internal name is part of the logo url or name
+            
             for (let j = i + 1; j < lines.length; j++) {
               const line = lines[j].trim();
               
-              // Extract Cookie (Handles {"cookie": "..."} format)
               if (line.startsWith('#EXTHTTP:')) {
-                const cookie = line.match(/"cookie":"([^"]+)"/);
-                if (cookie) cookieHeader = cookie[1];
+                const match = line.match(/"cookie":"([^"]+)"/);
+                if (match) cookieHeader = match[1];
               } 
-              // Extract DRM Keys (Star Sports/Sony need this)
               else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
-                const key = line.match(/license_key=([^:]+):([^$]+)/);
-                if (key) drmConfig = { clearKeys: { [key[1]]: key[2] } };
+                const parts = line.split('license_key=')[1].split(':');
+                if (parts.length >= 2) drmConfig = { clearKeys: { [parts[0]]: parts[1] } };
               }
-              // Extract URL
               else if (line.startsWith('http')) {
                 streamUrl = line;
-                break; // We have the URL, stop scanning
+                // Hack: extract internal name from URL for static key lookup
+                // e.g., .../Sports18_1_HD_BTS/...
+                const urlParts = streamUrl.split('/');
+                for(let part of urlParts) {
+                    if(STATIC_KEYS[part]) {
+                        console.log("Found Static Key override for:", part);
+                        drmConfig = { clearKeys: STATIC_KEYS[part] };
+                    }
+                }
+                break; 
               }
-              // Stop if we hit the next channel
-              else if (line.startsWith('#EXTINF:')) break; 
+              else if (line.startsWith('#EXTINF:')) break;
             }
             break;
           }
         }
 
-        if (!found || !streamUrl) {
-          status.innerText = "Channel Not Found in Playlist";
-          return;
-        }
+        if (!streamUrl) { status.innerText = "Channel Not Found"; return; }
 
-      } catch (e) {
-        status.innerText = "Playlist Error. Check Internet.";
-        return;
-      }
+      } catch (e) { status.innerText = "Playlist Error"; return; }
 
       status.style.display = 'none';
 
-      // 5. PLAYER CONFIGURATION (FORCE HD)
+      // --- 3. FORCE HD (1080p) ---
       player.configure({
         drm: drmConfig,
         abr: {
             enabled: true,
-            // 20 Mbps Estimate = Forces Player to grab 1080p/720p instantly
-            defaultBandwidthEstimate: 20000000, 
+            defaultBandwidthEstimate: 25000000, // 25 Mbps = Forces Max Quality
             switchInterval: 0
         },
         streaming: {
-          lowLatencyMode: true,
-          bufferingGoal: 45,
+          bufferingGoal: 60,
           rebufferingGoal: 10,
-          retryParameters: { maxAttempts: 5, baseDelay: 500, backoffFactor: 1.2 },
-          useNativeHlsOnSafari: true
+          retryParameters: { maxAttempts: 5, baseDelay: 1000, backoffFactor: 1.2 }
         }
       });
 
-      // 6. REQUEST FILTER (INJECT COOKIES & HEADERS)
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
         request.headers['Referer'] = 'https://www.jiotv.com/';
-        
         if (cookieHeader) {
           request.headers['Cookie'] = cookieHeader;
-          // Important: Some Jio tokens need to be in the URL too
-          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || 
-               type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && 
-               request.uris[0] && !request.uris[0].includes('hdnea=')) {
+          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && !request.uris[0].includes('hdnea=')) {
              const sep = request.uris[0].includes('?') ? '&' : '?';
              request.uris[0] += sep + cookieHeader;
           }
         }
       });
 
-      // 7. WORKER PROXY (CRITICAL FIX)
-      // Since M3U has http links, we wrap them in your worker to play on HTTPS sites
+      // Worker Proxy
       if (streamUrl.startsWith('http:')) {
-         const WORKER_URL = "https://pkll.xojiv79335.workers.dev/";
          streamUrl = WORKER_URL + streamUrl;
       }
 
-      // 8. LOAD & AUTOPLAY
+      // Play
       try {
         await player.load(streamUrl);
-        // Autoplay logic
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(_ => {
-              // Auto-play was prevented; mute and play
-              video.muted = true;
-              video.play();
-            });
-        }
       } catch (e) {
         console.error(e);
-        status.innerText = "Playback Error: " + e.code;
+        status.innerText = "Playback Failed: " + e.code;
         status.style.display = 'block';
       }
     });
