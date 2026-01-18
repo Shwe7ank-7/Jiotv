@@ -137,68 +137,88 @@
   </div>
 
   <script>
-    // --- 1. MANUAL KEY DATABASE (Updated) ---
-    // This allows you to override keys if the M3U is wrong or missing them.
-    const STATIC_KEYS = {
-      // The exact one you asked for:
-      "Sports18_1_HD_BTS": { 
-        "bd1ea6a1c1fb5dcdb709434e0826bbc0": "f57f22cba32739ce7beb1fab3f3d060b" 
+    // --- 1. MANUAL CHANNEL DATABASE ---
+    // Maps internal names (from M3U URL parts) to MANUAL MPD & KEY
+    // This overrides whatever is in the M3U if a match is found.
+    const MANUAL_CHANNELS = {
+      
+      // Star Sports 2 HD
+      "Star_Sports_HD2_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_HD2_BTS/output/index.mpd",
+        key: { "9457eb90129456fa8ea95e10ba4ac51e": "e620a970cea474c491ac78ae71a4d764" }
       },
-      // You can add more here if needed in the future
-      // "Star_Sports_2_Hindi_HD": { "kid": "key" }
+
+      // Star Sports 1 HD
+      "Star_Sports_HD1_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_HD1_BTS/output/index.mpd",
+        key: { "965dc2ddb1d85138ad787999a7f30ca5": "859695076e67fe961836b564db6d689c" }
+      },
+
+      // Star Sports 1 Hindi HD
+      "Star_Sports_HD1_Hindi_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_HD1_Hindi_BTS/output/index.mpd",
+        key: { "400131994b445d8c8817202248760fda": "2d56cb6f07a75b9aff165d534ae2bfc4" }
+      },
+
+      // Star Sports 2 Hindi HD (Actually Sports18_1_HD_BTS in backend often, using your provided link)
+      "Sports18_1_HD_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Sports18_1_HD_BTS/output/index.mpd",
+        key: { "bd1ea6a1c1fb5dcdb709434e0826bbc0": "f57f22cba32739ce7beb1fab3f3d060b" }
+      },
+
+      // Star Sports Select 1 HD
+      "Star_Sports_Select_HD_1_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_Select_HD_1_BTS/output/index.mpd",
+        key: { "c2c048e439d65316beeda6ef64d5d0f8": "e2fdc132cbdee65501b845ce414fce39" }
+      },
+
+      // Star Sports Select 2 HD
+      "Star_Sports_Select_HD_2_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_Select_HD_2_BTS/output/index.mpd",
+        key: { "6017d0514d425fa38f6e80ba6dcc852f": "0018944b00adf2078f62386f30c68b74" }
+      },
+
+      // Star Sports Khel (Sports18 Khel)
+      "Sports18_Khel_BTS": {
+        url: "https://jiotvpllive.cdn.jio.com/bpk-tv/Sports18_Khel_BTS/output/index.mpd",
+        key: { "ab947ddbb9795d38bff35597b4f73108": "2671e22eb7dc174c35b6aad4b113f7b0" }
+      }
     };
 
     // POPUP FUNCTION
     function closePopup() {
         document.getElementById('popup').style.display = 'none';
-        // Auto-play video after closing popup
         const video = document.querySelector('video');
         if(video && video.paused) { video.play().catch(()=>{}); }
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
       const status = document.getElementById('status');
-      
-      // 2. Get Channel ID
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
       
-      if (!targetId) {
-        status.innerText = "Error: No Channel ID";
-        return;
-      }
+      if (!targetId) { status.innerText = "Error: No Channel ID"; return; }
 
-      // 3. Initialize Shaka
       shaka.polyfill.installAll();
-      if (!shaka.Player.isBrowserSupported()) {
-        status.innerText = "Browser Not Supported";
-        return;
-      }
+      if (!shaka.Player.isBrowserSupported()) { status.innerText = "Browser Not Supported"; return; }
 
       const video = document.querySelector('video');
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
-      // 4. UI Configuration
+      // UI Config
       ui.configure({
-        controlPanelElements: [
-          'play_pause', 'time_and_duration', 'mute', 'volume',
-          'spacer', 'quality', 'fullscreen', 'overflow_menu'
-        ],
-        seekBarColors: {
-          base: 'rgba(255, 255, 255, 0.3)',
-          buffered: 'rgba(255, 255, 255, 0.54)',
-          played: 'rgb(255, 69, 0)'
-        }
+        controlPanelElements: ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'quality', 'fullscreen', 'overflow_menu'],
+        seekBarColors: { base: 'rgba(255, 255, 255, 0.3)', buffered: 'rgba(255, 255, 255, 0.54)', played: 'rgb(255, 69, 0)' }
       });
 
-      // 5. SMART M3U PARSER
+      // 5. SMART PARSER (With Manual Override)
       let streamUrl = "";
       let cookieHeader = "";
       let drmConfig = {};
 
       try {
-        status.innerText = "Fetching Channel Keys...";
+        status.innerText = "Fetching Channel Data...";
         const res = await fetch('https://raw.githubusercontent.com/alex8875/m3u/refs/heads/main/jstar.m3u');
         const text = await res.text();
         const lines = text.split('\n');
@@ -208,27 +228,32 @@
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].includes(`tvg-id="${targetId}"`)) {
             found = true;
+            
+            // Default parse from M3U
             for (let j = i + 1; j < lines.length; j++) {
               const line = lines[j].trim();
-              
               if (line.startsWith('#EXTHTTP:')) {
-                const cookie = line.match(/"cookie":"([^"]+)"/);
-                if (cookie) cookieHeader = cookie[1];
+                const match = line.match(/"cookie":"([^"]+)"/);
+                if (match) cookieHeader = match[1];
               } 
               else if (line.startsWith('#KODIPROP:inputstream.adaptive.license_key=')) {
-                const key = line.match(/license_key=([^:]+):([^$]+)/);
-                if (key) drmConfig = { clearKeys: { [key[1]]: key[2] } };
+                const parts = line.split('license_key=')[1].split(':');
+                if (parts.length >= 2) drmConfig = { clearKeys: { [parts[0]]: parts[1] } };
               }
               else if (line.startsWith('http')) {
                 streamUrl = line;
                 
-                // --- MANUAL KEY CHECKER ---
-                // If the URL matches our manual list, OVERRIDE the keys.
+                // --- MANUAL OVERRIDE LOGIC ---
+                // Check if this URL matches any of our manual channels
+                // We split by '/' to find the "Channel Name" part of the URL
                 const urlParts = streamUrl.split('/');
-                for(let part of urlParts) {
-                    if(STATIC_KEYS[part]) {
-                        console.log("Applying Manual Key for:", part);
-                        drmConfig = { clearKeys: STATIC_KEYS[part] };
+                for (let part of urlParts) {
+                    if (MANUAL_CHANNELS[part]) {
+                        console.log("Applying Manual Override for:", part);
+                        // Force URL
+                        streamUrl = MANUAL_CHANNELS[part].url;
+                        // Force Key
+                        drmConfig = { clearKeys: MANUAL_CHANNELS[part].key };
                     }
                 }
                 break; 
@@ -239,26 +264,16 @@
           }
         }
 
-        if (!found || !streamUrl) {
-          status.innerText = "Channel Not Found in Playlist";
-          return;
-        }
+        if (!found || !streamUrl) { status.innerText = "Channel Not Found"; return; }
 
-      } catch (e) {
-        status.innerText = "Playlist Error. Check Internet.";
-        return;
-      }
+      } catch (e) { status.innerText = "Playlist Error"; return; }
 
       status.style.display = 'none';
 
-      // 6. PLAYER CONFIGURATION (FORCE HD)
+      // 6. PLAYER CONFIG (HD Force)
       player.configure({
         drm: drmConfig,
-        abr: {
-            enabled: true,
-            defaultBandwidthEstimate: 20000000, 
-            switchInterval: 0
-        },
+        abr: { enabled: true, defaultBandwidthEstimate: 20000000, switchInterval: 0 },
         streaming: {
           lowLatencyMode: true,
           bufferingGoal: 45,
@@ -272,12 +287,9 @@
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
         request.headers['Referer'] = 'https://www.jiotv.com/';
-        
         if (cookieHeader) {
           request.headers['Cookie'] = cookieHeader;
-          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || 
-               type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && 
-               request.uris[0] && !request.uris[0].includes('hdnea=')) {
+          if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && !request.uris[0].includes('hdnea=')) {
              const sep = request.uris[0].includes('?') ? '&' : '?';
              request.uris[0] += sep + cookieHeader;
           }
@@ -293,8 +305,7 @@
       // 9. LOAD
       try {
         await player.load(streamUrl);
-        // We pause autoplay to show the Popup first
-        // video.play(); 
+        // Autoplay handled by popup close, or browser policy
       } catch (e) {
         console.error(e);
         status.innerText = "Playback Error: " + e.code;
