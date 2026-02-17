@@ -38,9 +38,9 @@ padding:15px 25px;border-radius:30px;z-index:50;
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
 
-const status = document.getElementById('status');
-const params = new URLSearchParams(window.location.search);
-const channelId = params.get('id');
+const status=document.getElementById('status');
+const params=new URLSearchParams(window.location.search);
+const channelId=params.get('id');
 
 if(!channelId){
 status.innerText="Channel ID Missing";
@@ -60,34 +60,47 @@ new shaka.ui.Overlay(player,document.querySelector('.shaka-video-container'),vid
 let streamUrl="";
 let clearKeys={};
 let cookie="";
-let refreshTimer=null;
 let retryCount=0;
 const MAX_RETRY=5;
 
-/* -------- FETCH STREAM DATA -------- */
-async function fetchStreamData(){
-const response=await fetch(
+/* FETCH SINGLE CHANNEL DATA */
+async function fetchChannel(){
+
+const res=await fetch(
 `https://pkll.xojiv79335.workers.dev/?id=${channelId}&t=${Date.now()}`
 );
-return await response.json();
-}
 
-/* -------- LOAD STREAM -------- */
-async function loadStream(){
-try{
-status.style.display="block";
-status.innerText="Fetching Live Stream Data...";
+const data=await res.json();
 
-const data=await fetchStreamData();
+/* 🔥 YOUR REAL FORMAT FIX 🔥 */
 
-streamUrl=data.mpd;
-clearKeys=data.keys;
+streamUrl=data.channel_url;
 cookie=data.cookie;
 
-if(!streamUrl||!clearKeys){
-status.innerText="Invalid Stream Data";
-return;
+/* split key like this:
+"9457eb90....:e620a97...."
+*/
+
+if(data.key && data.key.includes(":")){
+const parts=data.key.split(":");
+clearKeys[parts[0]]=parts[1];
 }
+
+if(!streamUrl||!clearKeys){
+throw new Error("Invalid Stream Data");
+}
+
+}
+
+/* LOAD STREAM */
+async function loadStream(){
+
+try{
+
+status.style.display="block";
+status.innerText="Fetching Stream...";
+
+await fetchChannel();
 
 player.configure({
 drm:{clearKeys:clearKeys},
@@ -108,16 +121,8 @@ request.headers['Referer']="https://www.jiotv.com/";
 
 if(cookie){
 request.headers['Cookie']=cookie;
+}
 
-if(
-(type===shaka.net.NetworkingEngine.RequestType.MANIFEST||
-type===shaka.net.NetworkingEngine.RequestType.SEGMENT)
-&&!request.uris[0].includes('hdnea=')
-){
-const sep=request.uris[0].includes('?')?'&':'?';
-request.uris[0]+=sep+cookie;
-}
-}
 });
 
 await player.load(streamUrl);
@@ -125,59 +130,29 @@ await player.load(streamUrl);
 status.style.display="none";
 retryCount=0;
 
-startBackgroundRefresh();
-
 }catch(e){
-handleError(e);
-}
+handleError();
 }
 
-/* -------- AUTO RETRY -------- */
-async function handleError(e){
-console.log("Playback Error:",e);
+}
+
+/* AUTO RETRY */
+async function handleError(){
 
 if(retryCount<MAX_RETRY){
 retryCount++;
-status.style.display="block";
 status.innerText="Reconnecting... ("+retryCount+")";
-
 await player.unload();
 await loadStream();
-
 }else{
-status.innerText="Stream Failed After Multiple Attempts";
-}
-}
-
-/* -------- BACKGROUND SILENT REFRESH -------- */
-function startBackgroundRefresh(){
-
-if(refreshTimer) clearInterval(refreshTimer);
-
-refreshTimer=setInterval(async ()=>{
-
-try{
-const data=await fetchStreamData();
-
-if(data.cookie!==cookie){
-console.log("Cookie Updated Silently");
-cookie=data.cookie;
-clearKeys=data.keys;
+status.innerText="Stream Failed";
 }
 
-}catch(e){
-console.log("Silent Refresh Failed");
 }
 
-},180000); // every 3 minutes
-}
-
-/* -------- PLAYER ERROR LISTENER -------- */
-player.addEventListener('error',async (event)=>{
-const error=event.detail;
-if(error.code===6007||error.code===6010||error.code===1002){
-await handleError(error);
-}
+/* ERROR LISTENER */
+player.addEventListener('error',()=>{
+handleError();
 });
 
 loadStream();
