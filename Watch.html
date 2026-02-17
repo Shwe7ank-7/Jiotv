@@ -88,6 +88,63 @@
     .error.hidden {
       display: none;
     }
+
+    /* Telegram Popup Styles */
+    .popup-container {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.7);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .popup-content {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 15px;
+        max-width: 400px;
+        text-align: center;
+        position: relative;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        margin: 0 20px; /* Slight margin for mobile */
+    }
+
+    .popup-poster {
+        width: 100%;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        font-size: 24px;
+        cursor: pointer;
+        color: #333;
+        line-height: 1;
+    }
+
+    .join-btn {
+        display: inline-block;
+        background-color: #0088cc;
+        color: white;
+        padding: 10px 25px;
+        text-decoration: none;
+        border-radius: 25px;
+        font-weight: bold;
+        margin-top: 10px;
+        transition: background 0.3s;
+    }
+
+    .join-btn:hover {
+        background-color: #006699;
+    }
   </style>
 </head>
 <body>
@@ -104,6 +161,16 @@
   <div class="error hidden" id="errorMessage">
     <h2>Error Loading Channel</h2>
     <p id="errorText"></p>
+  </div>
+
+  <div id="telegram-popup" class="popup-container">
+    <div class="popup-content">
+        <span class="close-btn" onclick="closePopup()">&times;</span>
+        <img src="https://ik.imagekit.io/24sfhkkep/shwe7ank-poster-16x9.png" alt="Join our Telegram" class="popup-poster">
+        <h3>Join Our Telegram</h3>
+        <p>Get the latest updates and exclusive content directly on Telegram.</p>
+        <a href="https://t.me/+3sgGQcDP6ExhYTU1" target="_blank" class="join-btn">Join Now</a>
+    </div>
   </div>
 
   <script>
@@ -404,13 +471,16 @@
       }
     });
 
-          // Show the alert
-      if (confirm("Join Our Telegram Channel @Axtream_Bingewav for updates and more")) {
-          // Redirect to the Telegram channel if 'OK' is clicked
-          window.location.href = "https://t.me/axtream_bingewav";
-      } else {
-          // Close the alert if 'Cancel' is clicked (do nothing)
-      }
+    // --- Telegram Popup Logic ---
+    // Show the popup after 3 seconds
+    setTimeout(function() {
+        document.getElementById('telegram-popup').style.display = 'flex';
+    }, 3000);
+
+    // Function to close the popup
+    function closePopup() {
+        document.getElementById('telegram-popup').style.display = 'none';
+    }
   </script>
 </body>
 </html>
