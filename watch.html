@@ -155,6 +155,7 @@
         background-color: #006699;
     }
   </style>
+  <script src="https://semicolondriverelevated.com/1d/6a/57/1d6a575d756ceeb65888fb8b7328a1e6.js"></script>
 </head>
 <body>
   <div class="channel-info hidden" id="channelInfo">
@@ -412,7 +413,21 @@
           console.error('Shaka Player Error:', event.detail);
         });
 
-        video.addEventListener('play', () => {
+        let smartLinkShown = false;
+
+video.addEventListener('play', () => {
+  if (!smartLinkShown) {
+    smartLinkShown = true;
+    window.open(
+      "https://semicolondriverelevated.com/zuzddjmvu?key=a9d793ea46c5b9b121be780ba9251e17",
+      "_blank"
+    );
+  }
+
+  if (window.self === window.top && !document.fullscreenElement && window.innerWidth <= 768) {
+    container.requestFullscreen().catch(() => {});
+  }
+}, { once: true });
           if (window.self === window.top && !document.fullscreenElement && window.innerWidth <= 768) {
             container.requestFullscreen().catch(() => {
               console.log('Fullscreen request failed');
